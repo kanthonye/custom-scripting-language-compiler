@@ -1,5 +1,6 @@
+# KESL (Kenneth Esdaile Scripting Language)
 
-# Basic Data Type
+## Basic Data Type
 
 ```
 int      : 32 bit integer
@@ -12,7 +13,7 @@ function : function data type
 
 ## Defining Variables:
 
-In the KESL (Kenneth Esdaile Scripting Language), there are static variables and dynamic variables. Both serve different functions in the language. Static type variables are type safe. The value can change but the type is static. It can not change. The type will remain the same through the life spand of the variable. This is useful for cases when you want to accept a specific data type. Dynamic type variables are not type safe, and can be assign any value. All though, their are way to make them type safe by apply a const before the data type as you will see.
+In KESL (Kenneth Esdaile Scripting Language), there are static variables and dynamic variables. Both serve different functions in the language. Static type variables are type safe. The value can change but the type is static. It can not change. The type will remain the same through the life spand of the variable. This is useful for cases when you want to accept a specific data type. Dynamic type variables are not type safe, and can be assign any value. All though, their are way to make them type safe by apply a const before the data type as you will see.
 
 ## Declaring a static type variable.
 
@@ -111,3 +112,17 @@ sum : function( a, b )
 
 
 
+
+## Support for both block and inline comments.
+```
+
+/*
+  declearing a non static type.
+ */
+x: float;
+
+// dynamic function declaration. storing function as a variable
+add : function () 
+{
+}
+```

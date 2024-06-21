@@ -1,1 +1,4 @@
+
+const x = const float( 10 ); 
+
 x = int( m + sqrt( v, 8 ) * k - 45.0 * t );
