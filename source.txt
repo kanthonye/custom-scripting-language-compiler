@@ -1,0 +1,602 @@
+// dynamic declaration 
+
+the supported data tyes.
+• function
+• string
+• double
+• float
+• long
+• int
+• struct
+
+num;
+num = 4;
+num = 4.f;
+num = 4.0;
+
+num = int;
+num = float;
+num = double;
+
+num = int(7);
+num = float(7);
+num = double(7);
+
+num : 4;
+num : 4.f;
+num : 4.0;
+
+num : int;
+num : float;
+num : double;
+
+num : const int(7);
+num : const float(7);
+num : const float( 7 + num );
+
+num = "";
+num = "Hello World";
+num = "the message say \"hellow world\" here i am.";
+num = "HELLOW" + " " + "WORLD";
+
+const x = const float( 10 ); 
+
+str : "";
+str : "Hello World";
+str : "the message say \"hellow world\" here i am.";
+str : "HELLOW" + " " + "WORLD";
+
+
+// static function declaration, that takes dynamic parameters
+add : function () 
+{
+}
+
+// static function declaration, that takes static and dynamic parameters
+add : function ( x, y:float, @z:float ) 
+{
+
+}
+
+// dynamic function declaration. storing function as a variable
+add : function () 
+{
+}
+
+add = function ( x, y:float, @z:float ) 
+{
+
+}
+
+
+
+
+
+
+
+
+x = const float;
+x = const function;
+
+
+
+x = const float;
+/*
+    can not assign a difference type. for example changing x to a string
+    x = ""
+    this will atempt to convert the string to a float but if the string 
+    is not numberic then its a error.
+*/
+
+
+// can not assign different value
+// can not assign different type
+const y: float; 
+
+// can change the value
+// can change the type
+z: float;
+
+
+/* valid object declaration */
+Vec3: struct
+{
+    x: const float;
+    y: const float; 
+    z: const float;
+}
+
+/* valid object declaration with null members */
+Vec3: struct
+{
+    x; // null variable
+    y; // null variable
+    z; // null variable
+}
+
+
+
+
+
+/* valid modulus function declaration */
+add = function ( x, y ) 
+{
+
+}
+
+
+ 
+/*
+declearing a non static type.
+*/
+x: float;
+
+/*
+declearing a variable with a semicolon sign make it a static variable.
+static variables can not change from one type to another. they only 
+change value. thus it will attempt to convert another type to its own type.
+for example. 
+*/
+x = "485.89";
+
+/*
+here the string will be converted to a numeric value
+declearing a dynamic type.
+*/
+x;
+x = float;
+x = 2;
+x = "ok";
+
+/*
+declearing a variable with the equal sign make it a dynamic variable
+dynamic variables can change from one type to another.
+static type constants.
+*/
+x: const float; 
+
+/*
+dynamic type constants.
+const x = const float; 
+*/
+
+// declearing functions. there are two type of sunction definitions. static and dynamic
+
+// static function declaration, that takes dynamic parameters
+add : function ( x, y ) 
+{
+}
+
+// static function declaration, that takes static parameters
+add : function ( x:int, y:float, z ) 
+{
+
+}
+
+// static function declaration, that takes static parameters
+add : function ( @x:int ) 
+{
+
+}
+
+
+main : function()
+{
+    file = open( "somefile/somewhere/image.jpu" );
+    size = sizeof( file );
+    data = []( size );
+    fread( data, size, file );
+    close( file );
+
+    print( data );
+    token: "";
+
+    for( i=0; i<size; i++)
+    {
+        k = data[i];
+        if( k == ' ' )
+        {
+            break;
+        }
+        token += k;
+    }
+
+    print( token );
+}
+
+
+
+
+dynamic function declaration
+
+add = function ( x, y ) 
+{
+
+}
+
+const add = function ( x, y ) 
+{
+
+}
+
+
+
+
+
+
+
+
+
+
+#define EncodeToken( category, type ) ( uint32_t( ( category << 16 ) | type ) )
+class Toekn
+{
+    enum Category
+    {
+        ERROR,
+        DELIMITER,
+        KEYWORD,
+        LITERAL,
+        IDENTIFIER,
+        OP_LOGICAL,
+        OP_BITWISE,
+        OP_ARITHMATIC,
+    };
+
+    enum Type
+    {
+        ERR              ,
+        END_STREAM    ,
+        END_TOKEN     ,
+
+        // delimiters
+        
+        NEWLINE          , // \n
+        ATSIGN           ,
+        COMMA            ,
+        QUOTE            ,
+        COLON            ,
+        SEMICOLON        ,
+        OS_BRACKET       ,
+        CS_BRACKET       ,
+        OC_BRACKET       ,
+        CC_BRACKET       ,
+        O_PARENTHESIS    ,
+        C_PARENTHESIS    ,
+        ASSIGN           ,
+
+        // arithmatic operations
+        
+        ADD              ,
+        SUB              ,
+        DIV              ,
+        MUL              ,
+        MOD              ,
+        ADD_EQUAL        ,
+        SUB_EQUAL        ,
+        DIV_EQUAL        ,
+        MUL_EQUAL        ,
+        MOD_EQUAL        ,
+        INCREMENT        ,
+        DECREMENT        ,
+
+        // logical operations
+        
+        LT       , // <
+        GT       , // >
+        OR       , // ||
+        AND      , // &&
+        EQUAL    , // ==
+        LT_EQUAL , // <=
+        GT_EQUAL , // >=
+        NOT_EQUAL, // !=
+        QUESTION_MARK    , // ?
+
+        // bitwise operations
+
+        SL       , // <<
+        SR       , // >>
+        OR       , // |
+        AND      , // &
+        INV      , // ~
+        SL_EQUAL , // <<=
+        SR_EQUAL , // >>=
+        OR_EQUAL , // |=
+        AND_EQUAL, // &=
+        INV_EQUAL, // ~=
+
+        // literals
+
+        F32     ,
+        F64     ,
+        I32     ,
+        I64     ,
+        U32     ,
+        U64     ,
+        STRING  ,
+
+        // keywords
+
+        FLOAT   ,
+        DOUBLE  ,
+        SINT16  ,
+        SINT32  ,
+        SINT64  ,
+        UINT16  ,
+        UINT32  ,
+        UINT64  ,
+        IF      ,
+        ELSE    ,
+        CONST   ,
+        FOR     ,
+        WHILE   ,
+        BREAK   ,
+        CONTINUE,
+        FUNCTION,
+        RETURN  ,
+        TRUE_KW ,
+        FALSE_KW,
+        NULL_KW ,
+        AND_KW  ,
+        OR_KW   ,
+
+        // identifier
+        
+        ID ,
+    };
+};
+
+
+
+
+
+
+#define EncodeToken( category, type ) ( uint32_t( ( category << 16 ) | type ) )
+class Toekn
+{
+    enum Category
+    {
+        ERROR,
+        OTHER,
+        DELIMITER,
+        KEYWORD,
+        LITERAL,
+        IDENTIFIER,
+        OP_LOGICAL,
+        OP_BITWISE,
+        OP_ARITHMATIC,
+    };
+
+    enum Type
+    {
+        ERR                 = int( EncodeToken( Category::ERROR, 0 ) ),
+        EOS                 = int( EncodeToken( Category::OTHER, 0 ) ),
+        END                 = int( EncodeToken( Category::OTHER, 1 ) ),
+
+        NEWLINE             = int( EncodeToken( Category::DELIMITER, 0 ) ), // ~
+        ATSIGN              = int( EncodeToken( Category::DELIMITER, 1 ) ),
+        COMMA               = int( EncodeToken( Category::DELIMITER, 2 ) ),
+        QUOTE               = int( EncodeToken( Category::DELIMITER, 3 ) ),
+        COLON               = int( EncodeToken( Category::DELIMITER, 4 ) ),
+        SEMICOLON           = int( EncodeToken( Category::DELIMITER, 5 ) ),
+        OS_BRACKET          = int( EncodeToken( Category::DELIMITER, 6 ) ),
+        CS_BRACKET          = int( EncodeToken( Category::DELIMITER, 7 ) ),
+        OC_BRACKET          = int( EncodeToken( Category::DELIMITER, 8 ) ),
+        CC_BRACKET          = int( EncodeToken( Category::DELIMITER, 9 ) ),
+        O_PARENTHESIS       = int( EncodeToken( Category::DELIMITER, 10 ) ),
+        C_PARENTHESIS       = int( EncodeToken( Category::DELIMITER, 11 ) ),
+        ASSIGN              = int( EncodeToken( Category::DELIMITER, 12 ) ),
+
+        ADD                 = int( EncodeToken( Category::OP_ARITHMATIC, 0 ) ),
+        SUB                 = int( EncodeToken( Category::OP_ARITHMATIC, 1 ) ),
+        DIV                 = int( EncodeToken( Category::OP_ARITHMATIC, 2 ) ),
+        MUL                 = int( EncodeToken( Category::OP_ARITHMATIC, 3 ) ),
+        MOD                 = int( EncodeToken( Category::OP_ARITHMATIC, 4 ) ),
+        ADD_EQUAL           = int( EncodeToken( Category::OP_ARITHMATIC, 5 ) ),
+        SUB_EQUAL           = int( EncodeToken( Category::OP_ARITHMATIC, 6 ) ),
+        DIV_EQUAL           = int( EncodeToken( Category::OP_ARITHMATIC, 7 ) ),
+        MUL_EQUAL           = int( EncodeToken( Category::OP_ARITHMATIC, 8 ) ),
+        MOD_EQUAL           = int( EncodeToken( Category::OP_ARITHMATIC, 9 ) ),
+        INCREMENT           = int( EncodeToken( Category::OP_ARITHMATIC, 10 ) ),
+        DECREMENT           = int( EncodeToken( Category::OP_ARITHMATIC, 11 ) ),
+
+        LT          = int( EncodeToken( Category::OP_LOGICAL, 0 ) ), // <
+        GT          = int( EncodeToken( Category::OP_LOGICAL, 1 ) ), // >
+        OR          = int( EncodeToken( Category::OP_LOGICAL, 2 ) ), // ||
+        AND         = int( EncodeToken( Category::OP_LOGICAL, 3 ) ), // &&
+        EQUAL       = int( EncodeToken( Category::OP_LOGICAL, 4 ) ), // ==
+        LT_EQUAL    = int( EncodeToken( Category::OP_LOGICAL, 5 ) ), // <=
+        GT_EQUAL    = int( EncodeToken( Category::OP_LOGICAL, 6 ) ), // >=
+        NOT_EQUAL   = int( EncodeToken( Category::OP_LOGICAL, 7 ) ), // !=
+        QUESTION_MARK       = int( EncodeToken( Category::OP_LOGICAL, 8 ) ), // ?
+
+
+        SL          = int( EncodeToken( Category::OP_BITWISE, 0 ) ), // <<
+        SR          = int( EncodeToken( Category::OP_BITWISE, 1 ) ), // >>
+        OR          = int( EncodeToken( Category::OP_BITWISE, 2 ) ), // |
+        AND         = int( EncodeToken( Category::OP_BITWISE, 3 ) ), // &
+        INV         = int( EncodeToken( Category::OP_BITWISE, 4 ) ), // ~
+        SL_EQUAL    = int( EncodeToken( Category::OP_BITWISE, 5 ) ), // <<=
+        SR_EQUAL    = int( EncodeToken( Category::OP_BITWISE, 6 ) ), // >>=
+        OR_EQUAL    = int( EncodeToken( Category::OP_BITWISE, 7 ) ), // |=
+        AND_EQUAL   = int( EncodeToken( Category::OP_BITWISE, 8 ) ), // &=
+        INV_EQUAL   = int( EncodeToken( Category::OP_BITWISE, 9 ) ), // ~=
+
+        F32                 = int( EncodeToken( Category::LITERAL, 0 ) ),
+        F64                 = int( EncodeToken( Category::LITERAL, 1 ) ),
+        I32                 = int( EncodeToken( Category::LITERAL, 3 ) ),
+        I64                 = int( EncodeToken( Category::LITERAL, 4 ) ),
+        U32                 = int( EncodeToken( Category::LITERAL, 6 ) ),
+        U64                 = int( EncodeToken( Category::LITERAL, 7 ) ),
+        STRING              = int( EncodeToken( Category::LITERAL, 8 ) ),
+
+        FLOAT               = int( EncodeToken( Category::KEYWORD, 0 ) ),
+        DOUBLE              = int( EncodeToken( Category::KEYWORD, 1 ) ),
+        SINT16              = int( EncodeToken( Category::KEYWORD, 2 ) ),
+        SINT32              = int( EncodeToken( Category::KEYWORD, 3 ) ),
+        SINT64              = int( EncodeToken( Category::KEYWORD, 4 ) ),
+        UINT16              = int( EncodeToken( Category::KEYWORD, 5 ) ),
+        UINT32              = int( EncodeToken( Category::KEYWORD, 6 ) ),
+        UINT64              = int( EncodeToken( Category::KEYWORD, 7 ) ),
+        IF                  = int( EncodeToken( Category::KEYWORD, 8 ) ),
+        ELSE                = int( EncodeToken( Category::KEYWORD, 9 ) ),
+        CONST               = int( EncodeToken( Category::KEYWORD, 10 ) ),
+        FOR                 = int( EncodeToken( Category::KEYWORD, 11 ) ),
+        WHILE               = int( EncodeToken( Category::KEYWORD, 12 ) ),
+        BREAK               = int( EncodeToken( Category::KEYWORD, 13 ) ),
+        CONTINUE            = int( EncodeToken( Category::KEYWORD, 14 ) ),
+        FUNCTION            = int( EncodeToken( Category::KEYWORD, 15 ) ),
+        RETURN              = int( EncodeToken( Category::KEYWORD, 16 ) ),
+        TRUE_KW             = int( EncodeToken( Category::KEYWORD, 17 ) ),
+        FALSE_KW            = int( EncodeToken( Category::KEYWORD, 18 ) ),
+        NULL_KW             = int( EncodeToken( Category::KEYWORD, 19 ) ),
+        AND_KW              = int( EncodeToken( Category::KEYWORD, 19 ) ),
+        OR_KW               = int( EncodeToken( Category::KEYWORD, 19 ) ),
+
+        ID                  = int( EncodeToken( Category::IDENTIFIER, 0 ) ),
+    };
+
+
+    // ketword, int, string
+
+    Category category;
+    Type type;
+};
+
+
+
+
+
+
+    enum StateId
+    {
+        _ERROR,
+        _END,
+        _START_TOKEN,
+
+        _PLUS,         // +
+        _MINUS,        // -
+        _ASTERISK,     // *
+        _SLASH,        // /
+        _MOD,          // %
+        _EQUAL,        // =
+        _AT_SIGN,      // @
+
+        _INCREMENT,    // --
+        _DECREMENT,    // ++
+        
+        _EQUAL_ADD,   // +=
+        _SUB_EQUAL,   // -=
+        _MUL_EQUAL,   // *=
+        _DIV_EQUAL,   // /=
+        _EQUAL_MOD,   // %=
+
+        _LESS,         // <
+        _GREATER,      // >
+        _AND,          // &&
+        _OR,           // ||
+        _NOT,          // !
+        _EQUAL,        // ==
+        _NOT_EQUAL,    // !=
+        _LESS_EQUAL,   // <=
+        _GREATER_EQUAL,// >=
+        
+        // BITWISE OPERATORS
+        _AND,   // &
+        _XOR,   // ^
+        _OR,    // |
+        _INVERT,   // ~
+        _AND_EQUAL,   // &=
+        _OR_EQUAL,    // |=
+        _XOR_EQUAL,   // ^=
+        _INVERT_EQUAL, // ~=
+        _SHIFT_RIGHT, // >>
+        _SHIFT_LEFT,  // <<
+        _SHIFT_RIGHT_EQUAL,  // >>=
+        _SHIFT_LEFT_EQUAL,   // <<=
+        _ASIGN_NOT,   // ~=
+
+        // DELIMITERS
+        _OPEN_SQUARE_BRACKET,   // [
+        _CLOSE_SQUARE_BRACKET,  // ]
+        _OPEN_CURLY_BRACKET,    // {
+        _CLOSE_CURLY_BRACKET,   // }
+        _OPEN_PARENTHESIS,      // (
+        _CLOSE_PARENTHESIS,     // )
+        _SEMICOLON,             // ;
+        _COLON,                 // :
+        _COMMA,                 // ,
+        _QUOTE,                 // "
+        _NEWLINE,               // \n
+
+        _INLINE_COMMENT,
+        _BLOCK_COMMENT,
+
+        _INT,
+        _LONG,
+        _FLOAT,        // 2.8f
+        _FLOAT_E,      // 2.81e+8f
+        _DOUBLE,       // 2.8
+        _DOUBLE_E,     // 2.81e+8
+        _DOUBLE_EX,
+
+        _IDENTIFIER,           // name, _name, id2
+        _STRING,       //
+
+        TOTAL_STATE,
+    };
+
+
+
+
+preprocess : function( line_buffer:string, head, tail, filename:string )
+{
+    file;
+    if ( ! ( file = fopen ( filename, "r" ) ) )
+    {
+        return "failed to open file -> " + filename;
+    }
+
+    line_count = int(0);
+    while ( !feof( file ) )
+    {
+        fgets ( line_buffer, MAX_LINE_LENGTH, file );
+        line_buffer[ MAX_LINE_LENGTH ] = 0;
+        line_count++;
+
+        if ( line_buffer[ 0 ] == 25 )
+        {   
+            s = line_buffer[ 1 ];
+            if ( strBeginWith( s, "include" ) )
+            {
+                s += 8;
+                while ( s != 49 ) s++;
+                if ( s == 49 ) s++;
+
+                i = int( strlen( s ) - 1 );
+                while (s[ i ] != 49 && i > 0 ) 
+                {
+                    s[ i-- ] = 0;
+                }
+
+                h = nullptr;
+                t = nullptr;
+
+                if ( preprocess( line_buffer, h, t, s ) )
+                {
+                    if ( head == nullptr )
+                    {
+                        head = h;
+                        tail = t;
+                    }
+                }
+            }
+        }
+        else 
+        {
+        }
+    }
+    fclose ( file );
+    return true;
+}
+
