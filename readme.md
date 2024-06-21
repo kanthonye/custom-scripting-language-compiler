@@ -1,14 +1,16 @@
 
-## Basic Data Type
+# Basic Data Type
 
-int    : 32 bit integer
-long   : 64 bit integer
-float  : 32 bit float
-double : 64 bit float
-string : string data type
+```
+int      : 32 bit integer
+long     : 64 bit integer
+float    : 32 bit float
+double   : 64 bit float
+string   : string data type
 function : function data type
+```
 
-# Defining Variables:
+## Defining Variables:
 
 In the KESL (Kenneth Esdaile Scripting Language), there are static variables and dynamic variables. Both serve different functions in the language. Static type variables are type safe. The value can change but the type is static. It can not change. The type will remain the same through the life spand of the variable. This is useful for cases when you want to accept a specific data type. Dynamic type variables are not type safe, and can be assign any value. All though, their are way to make them type safe by apply a const before the data type as you will see.
 
@@ -46,7 +48,7 @@ num2 = "hellow world";
 
 
 
-# Defining Constant Variables:
+## Defining Constant Variables:
 
 Decaring a constant static variable type. Its type and value can not be altered.
 
@@ -96,7 +98,7 @@ num = "10";
 
 
 
-# Defining Functions:
+## Defining Functions:
 
 In the KESL functions are created with the function keyword, and store to a value which will be the identifier use to invoke the function. They can be assign to variables and passed as parameters to other functions. The declaration of a function looks simplare to the declaration of variables. For e.g., below is the declaration of a function called sum. Take note that it is a statically defined function. Functions define in the global scope should only be static. Statically defined function should not be defined in a local scope.
 
