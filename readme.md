@@ -115,7 +115,6 @@ sum : function( a, b )
 
 ## Support for both block and inline comments.
 ```
-
 /*
   declearing a non static type.
  */

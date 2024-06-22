@@ -16,12 +16,20 @@ Tree analyzeAssignment( uint32_t scope, Tree& assignment );
 Tree analyzeDeclaration( uint32_t scope, Tree& declaration );
 Tree getFunctionDeclaration( uint32_t scope, Tree& function );
 
-Tree getIdentifier( uint32_t flags, Tree& param )
+Tree getIdentifier( uint32_t flags, Tree& node )
 {
     Tree var = new Tree::Node();
-    var->node_type = Lexer::_VAR;
-    var->flags = flags;
-    var->id = param->id;
+    if ( node->nodes.empty() )
+    {
+        var->node_type = Lexer::_VAR;
+        var->flags = flags;
+        var->id = node->id;
+    }
+    else
+    {
+        var->node_type = node->nodes[ 0 ]->node_type;
+        var->id = node->id;
+    }
     return var;
 }
 
@@ -453,6 +461,50 @@ Tree analyzeOperation( Tree& operand )
         }
         break;
 
+        case Lexer::_AND:
+        {   
+            op = new Tree::Node( Lexer::_AND );
+            op->push( analyzeOperation( operand->nodes[ 0 ] ) );
+            op->push( analyzeOperation( operand->nodes[ 1 ] ) );
+        }
+        break;
+
+        case Lexer::_OR:
+        {   
+            op = new Tree::Node( Lexer::_AND );
+            op->push( analyzeOperation( operand->nodes[ 0 ] ) );
+            op->push( analyzeOperation( operand->nodes[ 1 ] ) );
+        }
+        break;
+
+        case Lexer::_INCREMENT:
+        {   
+            op = new Tree::Node( Lexer::_INCREMENT );
+            op->id = operand->nodes[ 0 ]->id;
+        }
+        break;
+
+        case Lexer::_DECREMENT:
+        {   
+            op = new Tree::Node( Lexer::_DECREMENT );
+            op->id = operand->nodes[ 0 ]->id;
+        }
+        break;
+
+        case Lexer::_NOT:
+        {   
+            op = new Tree::Node( Lexer::_NOT );
+            op->id = operand->nodes[ 0 ]->id;
+        }
+        break;
+
+        case Lexer::_INVERT:
+        {   
+            op = new Tree::Node( Lexer::_INVERT );
+            op->id = operand->nodes[ 0 ]->id;
+        }
+        break;
+
         case Lexer::_FUNCTION_CALL:
         {   
             op = new Tree::Node( Lexer::_FUNCTION_CALL, operand->id );
@@ -503,6 +555,12 @@ Tree analyzeAssignment( uint32_t scope, Tree& assignment )
             msg += + " line#: " + std::to_string( assignment->line );
             msg += " : dynamic function declaration '"+ assignment->nodes[ 0 ]-> id +"' can not be defined in global scope.";
             throw std::runtime_error( msg );
+        }
+        break;
+
+        case Lexer::_IDENTIFIER:
+        {   
+            assign->push( getIdentifier( 0, assignment->nodes[ 1 ] ) );
         }
         break;
 
@@ -558,6 +616,12 @@ Tree analyzeAssignment( uint32_t scope, Tree& assignment )
         case Lexer::_MUL:
         case Lexer::_DIV:
         case Lexer::_MOD:
+        case Lexer::_AND:
+        case Lexer::_OR:
+        case Lexer::_NOT:
+        case Lexer::_INVERT:
+        case Lexer::_INCREMENT:
+        case Lexer::_DECREMENT:
         {   
             assign->push( analyzeOperation( assignment->nodes[ 1 ] ) );
         }

@@ -9,7 +9,7 @@ public:
 
     class Node{
     public:
-
+        bool empty()const{ return nodes.empty(); }
         void push( Tree n )
         {
             nodes.push_back( n );

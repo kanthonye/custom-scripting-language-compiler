@@ -600,3 +600,38 @@ preprocess : function( line_buffer:string, head, tail, filename:string )
     return true;
 }
 
+
+
+parseAssignment( n )
+{
+    assign = new Tree( ... )
+    switch( token )
+    {
+        
+    }
+}
+parserIdentifier( n )
+{
+    id = new Tree( lexer->lexeme );
+    switch( token )
+    {
+        case EQUAL:
+        {
+            return parseAssignment( id );
+        }
+
+        case COLON:
+        {
+            return parseDeclaration( id );
+        }
+
+        ...
+    }
+}
+
+
+while loop parameters
+for loop parameters
+if parameters
+function parameters
+enclose paren parameters
