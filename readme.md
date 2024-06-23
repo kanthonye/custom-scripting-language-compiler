@@ -125,3 +125,45 @@ add : function ()
 {
 }
 ```
+
+
+
+
+
+Tree parseConst( lexer ) {
+  const_node = Node( CONST );
+  const_node->push( parserIdentifier() )
+  return const_node;
+}
+
+Tree parserIdentifier() {
+  identifier_node = Node( IDENTIFIER, id );
+  switch()
+  {
+    case ASSIGN: assign_node->add({ identifier_node, parserRightSide() });
+    case COLON: declaration_node->add({ identifier_node, parserRightSide() })
+    case +=: assign_node->add({ identifier_node, parserRightSide() });
+    case -=:
+    case *=:
+    case /=:
+    case ^=:
+    case %=:
+    case ~=:
+  }
+}
+
+Tree parserIdentifier() {
+  identifier_node = Node( IDENTIFIER, id );
+  switch()
+  {
+    case ASSIGN:
+    case COLON:
+    case +=:
+    case -=:
+    case *=:
+    case /=:
+    case ^=:
+    case %=:
+    case ~=:
+  }
+}

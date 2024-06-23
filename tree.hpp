@@ -56,13 +56,8 @@ public:
         std::vector< Tree > nodes;
         std::string  id;
         Lexer::Token node_type;
-
-
-    // protected:
-
-        //int data_type; // this property is set by the syntax analyzer
-        int flags;    // this property is set by the syntax analyzer
-        int line;     // this property is set by the lexical analyzer, it holds the code line number
+        int flags;   // this property is set by the syntax analyzer
+        int line;    // this property is set by the lexical analyzer, it holds the code line number
 
         int refcount;
         //friend Tree;

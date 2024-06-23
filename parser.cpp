@@ -1,11 +1,5 @@
 #include "parser.hpp"
 
-Tree parseStatement( Lexer* lexer, Lexer::Token& token );
-bool parseE( Tree& stmt, Lexer* lexer, Lexer::Token& token );
-bool boolTerm( Tree& stmt, Lexer* lexer, Lexer::Token& token );
-bool parseWhile( Tree& stmt, Lexer* lexer, Lexer::Token& token );
-
-Tree parseExprId( Lexer* lexer, Lexer::Token& token );
 Tree parseExpression( Lexer* lexer, Lexer::Token& token );
 Tree parseIfStatement( Lexer* lexer, Lexer::Token& token );
 Tree parseForLoop( Lexer* lexer, Lexer::Token& token );
@@ -13,8 +7,8 @@ Tree parseScopeBlock( Lexer* lexer, Lexer::Token& token );
 Tree parseFunction( Lexer* lexer, Lexer::Token& token );
 Tree parseValue( Lexer* lexer, Lexer::Token& token );
 Tree parseDataType( Lexer* lexer, Lexer::Token& token );
-Tree parseIdentifier( Tree& id, Lexer* lexer, Lexer::Token& token );
-
+Tree parseIdentifier( Lexer* lexer, Lexer::Token& token );
+Tree parseConstant( Lexer* lexer, Lexer::Token& token );
 
 enum
 {
@@ -22,18 +16,65 @@ enum
     MISSING_TOKEN,
     UNEXPECTED_TOKEN,
     UNSUPPORTED_TYPE,
+    EMPTY_ARRAY_OBJECT,
+    UNDETERMIND_STATIC_TYPE,
+    UNSUPPORTED_FUNCTION_PARAMETER,
 };
-
 void throwPaserError( int error_code, int line, Lexer::Token token, const char* funct )
 {
     std::string msg;
     switch ( error_code )
     {
+        case UNEXPECTED_TOKEN:
+        {
+            msg += "error in " + std::string( funct );
+            msg += std::string( ": UNEXPECTED_TOKEN -> " ) + Lexer::toString( token );
+            msg += std::string( ": at line# " ) + std::to_string( line );
+        }
+        break;
+
+        case MISSING_TOKEN:
+        {
+            msg += "error in " + std::string( funct );
+            msg += std::string( ": MISSING_TOKEN -> " ) + Lexer::toString( token );
+            msg += std::string( ": at line# " ) + std::to_string( line );
+        }
+        break;
+
         case EXPECTED_TOKEN:
         {
             msg += "error in " + std::string( funct );
-            msg += std::string( ": exprected token " ) + Lexer::toString( token );
+            msg += std::string( ": EXPECTED_TOKEN -> " ) + Lexer::toString( token );
             msg += std::string( ": at line# " ) + std::to_string( line );
+        }
+        break;
+
+        case UNSUPPORTED_TYPE:
+        {
+            msg += "error in " + std::string( funct );
+            msg += std::string( ": UNSUPPORTED_TYPE -> " ) + Lexer::toString( token );
+            msg += std::string( ": at line# " ) + std::to_string( line );
+        }
+        break;
+
+        case EMPTY_ARRAY_OBJECT:
+        {
+            msg += "error detected by " + std::string( funct );
+            msg += ": EMPTY_ARRAY_OBJECT -> " + std::string( ": at line# " ) + std::to_string( line );
+        }
+        break;
+
+        case UNDETERMIND_STATIC_TYPE:
+        {
+            msg += "error detected by " + std::string( funct );
+            msg += ": UNDETERMIND_STATIC_TYPE -> " + std::string( ": at line# " ) + std::to_string( line );
+        }
+        break;
+
+        case UNSUPPORTED_FUNCTION_PARAMETER:
+        {
+            msg += "error detected by " + std::string( funct );
+            msg += ": UNSUPPORTED_FUNCTION_PARAMETER -> " + std::string( ": at line# " ) + std::to_string( line );
         }
         break;
     
@@ -73,11 +114,21 @@ int precedence( int op )
         case Lexer::_DIV:
         return 6;
 
+        case Lexer::_ADD_EQUAL:
+        case Lexer::_SUB_EQUAL:
+        case Lexer::_DIV_EQUAL:
+        case Lexer::_MUL_EQUAL:
+        return 7;
+
+        case Lexer::_EXP_EQUAL:
+        return 8;
+
         case Lexer::_EXP:
         case Lexer::_NOT:
         case Lexer::_DECREMENT:
         case Lexer::_INCREMENT:
-        return 7;
+        case Lexer::_INVERT_EQUAL:
+        return 9;
 
         default:
         return 0;
@@ -232,6 +283,49 @@ Tree parseDataType( Lexer* lexer, Lexer::Token& token )
     return var;
 }
 
+Tree parseArrayObject( Lexer* lexer, Lexer::Token& token )
+{
+    Tree stmt = new Tree::Node( lexer->getCurrLine(), Lexer::_ARRAY );
+    token = lexer->getNextToken();
+    Tree e;
+
+    if( token == Lexer::_CLOSE_SQUARE_BRACKET )
+    {
+        token = lexer->getNextToken();
+        if( token == Lexer::_OPEN_PARENTHESIS )
+        {
+            token = lexer->getNextToken();
+            Tree size = new Tree::Node( lexer->getCurrLine(), Lexer::_ARRAY_SIZE );
+            size->push( parseExpression( lexer, token ) );
+            stmt->push( size );
+            if( token != Lexer::_CLOSE_PARENTHESIS )
+            {
+                THROW_PARSING_ERROR( MISSING_TOKEN, lexer->getCurrLine(), Lexer::_CLOSE_PARENTHESIS );
+            }
+            token = lexer->getNextToken();
+        }
+        if( token != Lexer::_SEMICOLON )
+        {
+            THROW_PARSING_ERROR( MISSING_TOKEN, lexer->getCurrLine(), Lexer::_SEMICOLON );
+        }
+        return stmt;
+    }
+
+    stmt->push( parseExpression( lexer, token ) );
+    while ( token == Lexer::_COMMA )
+    {
+        token = lexer->getNextToken();
+        stmt->push( parseExpression( lexer, token ) );
+    }
+
+    if( token != Lexer::_CLOSE_SQUARE_BRACKET )
+    {
+        THROW_PARSING_ERROR( MISSING_TOKEN, lexer->getCurrLine(), Lexer::_CLOSE_SQUARE_BRACKET );
+    }
+    token = lexer->getNextToken();
+    return stmt;
+}
+
 Tree getBodyStmt( Lexer* lexer, Lexer::Token& token )
 {
     if ( token == Lexer::_OPEN_CURLY_BRACKET )
@@ -240,30 +334,33 @@ Tree getBodyStmt( Lexer* lexer, Lexer::Token& token )
     } 
     else 
     {
-        return parseStatement( lexer, token );  
+        return parseIdentifier( lexer, token );  
     } 
 }
 
 Tree parseForLoopCondition( Lexer* lexer, Lexer::Token& token )
 {
-    Tree conditions = new Tree::Node( lexer->getCurrLine(), Lexer::_CONDITIONS );
+    Tree condition_list = new Tree::Node( lexer->getCurrLine(), Lexer::_CONDITIONS );
     token = lexer->getNextToken();
 
-    while ( token != Lexer::_CLOSE_PARENTHESIS )
+    Tree conditions[ 3 ];
+    for (size_t i = 0; i < 3; i++)
     {
-        conditions->push( parseExpression( lexer, token ) );
-        if ( token != Lexer::_CLOSE_PARENTHESIS )
+        conditions[ i ] = new Tree::Node( lexer->getCurrLine(), Lexer::_PARAMETERS );
+        conditions[ i ]->push( parseExpression( lexer, token ) );
+        while ( token != Lexer::_SEMICOLON && token == Lexer::_COMMA )
         {
             token = lexer->getNextToken();
-            break;
+            conditions[ i ]->push( parseExpression( lexer, token ) );
         }
-        if ( token != Lexer::_SEMICOLON )
+        if ( token != Lexer::_SEMICOLON && token != Lexer::_CLOSE_PARENTHESIS )
         {
-            token = lexer->getNextToken();
+            THROW_PARSING_ERROR( UNEXPECTED_TOKEN, lexer->getCurrLine(), token );
         }
+        token = lexer->getNextToken();
+        condition_list->push( conditions[ i ] );
     }
-    token = lexer->getNextToken();
-    return conditions;
+    return condition_list;
 }
 
 Tree parseForLoop( Lexer* lexer, Lexer::Token& token )
@@ -300,11 +397,17 @@ Tree parseIfStatement( Lexer* lexer, Lexer::Token& token )
     if ( token == Lexer::_OPEN_PARENTHESIS )
     {
         stmt = new Tree::Node( lexer->getCurrLine(), Lexer::_IF );
-
         Tree conditions = new Tree::Node( lexer->getCurrLine(), Lexer::_CONDITIONS );
+        token = lexer->getNextToken();
+
         conditions->push( parseExpression( lexer, token ) );
         stmt->push( conditions );
 
+        if ( token != Lexer::_CLOSE_PARENTHESIS )
+        {
+            THROW_PARSING_ERROR( UNEXPECTED_TOKEN, lexer->getCurrLine(), token );
+        }
+        token = lexer->getNextToken();
         stmt->push( getBodyStmt( lexer, token ) );
     }
     return stmt;
@@ -335,299 +438,194 @@ Tree parseElseStatement( Lexer* lexer, Lexer::Token& token )
     return els;
 }
 
-Tree parseEncloseParenthesis( Lexer* lexer, Lexer::Token& token )
+Tree parseScopeBlock( Lexer* lexer, Lexer::Token& token )
 {
-    Tree stmt = new Tree::Node( lexer->getCurrLine(), Lexer::_ENCLOSE_PARENTHESIS );
+    Tree stmts = new Tree::Node( lexer->getCurrLine(), Lexer::_SCOPE_BLOCK );
     token = lexer->getNextToken();
 
-    if ( token == Lexer::_CLOSE_PARENTHESIS )
+    if ( token == Lexer::_CLOSE_CURLY_BRACKET )
     {
-        THROW_PARSING_ERROR( UNEXPECTED_TOKEN, lexer->getCurrLine(), token );
+        token = lexer->getNextToken();
+        return stmts;
     }
 
-    switch ( token )
+    while ( token != Lexer::_CLOSE_CURLY_BRACKET )
     {
-        case Lexer::_INVERT_EQUAL:
-        case Lexer::_ADD_EQUAL:
-        case Lexer::_SUB_EQUAL:
-        case Lexer::_MUL_EQUAL:
-        case Lexer::_DIV_EQUAL:
-        case Lexer::_EXP_EQUAL:
+        switch ( token )
         {
-            Tree assign = new Tree::Node( lexer->getCurrLine(), Lexer::_ASSIGN ); 
-            Tree opp;
-
-            switch ( token )
-            {
-                case Lexer::_ADD_EQUAL:
-                {
-                    opp = new Tree::Node( lexer->getCurrLine(), Lexer::_ADD ); 
-                }
-                break;
-
-                case Lexer::_SUB_EQUAL:
-                {
-                    opp = new Tree::Node( lexer->getCurrLine(), Lexer::_SUB ); 
-                }
-                break;
-
-                case Lexer::_MUL_EQUAL:
-                {
-                    opp = new Tree::Node( lexer->getCurrLine(), Lexer::_MUL ); 
-                }
-                break;
-
-                case Lexer::_DIV_EQUAL:
-                {
-                    opp = new Tree::Node( lexer->getCurrLine(), Lexer::_DIV ); 
-                }
-                break;
-
-                case Lexer::_EXP_EQUAL:
-                {
-                    opp = new Tree::Node( lexer->getCurrLine(), Lexer::_EXP ); 
-                }
-                break;
-
-                case Lexer::_MOD_EQUAL:
-                {
-                    opp = new Tree::Node( lexer->getCurrLine(), Lexer::_MOD ); 
-                }
-                break;
-            
-                default:
-                {
-                    THROW_PARSING_ERROR( UNSUPPORTED_TYPE, lexer->getCurrLine(), token );
-                }
-                break;
+            case Lexer::_IDENTIFIER:
+            {   
+                stmts->push( parseIdentifier( lexer, token ) );
             }
-            token = lexer->getNextToken();
-            opp->push( stmt );
-            opp->push( parseExpression( lexer, token ) ); 
+            break;
 
-            if ( token != Lexer::_CLOSE_PARENTHESIS )
-            {
-                THROW_PARSING_ERROR( EXPECTED_TOKEN, lexer->getCurrLine(), token );
+            case Lexer::_CONST:
+            {   
+                token = lexer->getNextToken();
+                stmts->push( parseConstant( lexer, token ) );
             }
+            break;
 
-            assign->push( stmt );
-            assign->push( opp );
-            stmt = assign;
-        }
-        break;
-
-        default:
-        {
-            stmt->push( parseExpression( lexer, token ) );
-            if ( token != Lexer::_CLOSE_PARENTHESIS )
-            {
-                THROW_PARSING_ERROR( EXPECTED_TOKEN, lexer->getCurrLine(), token );
+            case Lexer::_IF:
+            {   
+                token = lexer->getNextToken();
+                stmts->push( parseIfStatement( lexer, token ) );
+                while ( token == Lexer::_ELSE )
+                {
+                    stmts->push( parseElseStatement( lexer, token ) );
+                }
             }
-        }
-        break;
-    }
-    return stmt;
-}
+            break;
 
-Tree parseExprId( Lexer* lexer, Lexer::Token& token )
-{
-    Tree stmt = new Tree::Node( lexer->getCurrLine(), Lexer::_IDENTIFIER, lexer->getLexeme() );
-    token = lexer->getNextToken();
-
-    switch( token )
-    {   
-        case Lexer::_OPEN_PARENTHESIS:
-        {
-            stmt->node_type = Lexer::_FUNCTION_CALL;
-            stmt->push( parseExpression( lexer, token ) );
-            while ( token == Lexer::_COMMA )
+            case Lexer::_FOR:
             {
                 token = lexer->getNextToken();
-                stmt->push( parseExpression( lexer, token ) );
+                stmts->push( parseForLoop( lexer, token ) );          
             }
-            if ( token != Lexer::_CLOSE_PARENTHESIS ) 
+            break;
+
+            case Lexer::_WHILE:
+            {  
+                token = lexer->getNextToken();
+                stmts->push( parseWhileLoop( lexer, token ) );
+            }
+            break;
+
+            case Lexer::_OPEN_CURLY_BRACKET:
             {
-                THROW_PARSING_ERROR( MISSING_TOKEN, lexer->getCurrLine(), Lexer::_CLOSE_PARENTHESIS );
+                stmts->push( parseScopeBlock( lexer, token ) ); 
             }
-            token = lexer->getNextToken();
-        }   
+            break;
+
+            case Lexer::_CONTINUE:
+            case Lexer::_BREAK:
+            {
+                stmts->push( new Tree::Node( lexer->getCurrLine(), token ) ); 
+                token = lexer->getNextToken();
+                if ( token != Lexer::_SEMICOLON )
+                {
+                    THROW_PARSING_ERROR( EXPECTED_TOKEN, lexer->getCurrLine(), Lexer::_SEMICOLON );
+                }
+                token = lexer->getNextToken();
+            }
+            break;
+
+            default:
+            {
+                token = lexer->getNextToken();
+            }
+            break;
+        }      
+    }
+    token = lexer->getNextToken();
+    return stmts;
+}
+
+Tree getFunctParam( Lexer* lexer, Lexer::Token& token )
+{
+    Tree stmt;
+    switch ( token )
+    {
+        case Lexer::_VAR_STRING:
+        case Lexer::_VAR_DOUBLE:
+        case Lexer::_VAR_FLOAT:
+        case Lexer::_VAR_LONG:
+        case Lexer::_VAR_INT:
+        case Lexer::_VAR_BOOL:
+        {
+            stmt = parseDataType( lexer, token );
+            if ( token != Lexer::_COMMA && token != Lexer::_CLOSE_PARENTHESIS )
+            {
+                THROW_PARSING_ERROR( UNEXPECTED_TOKEN, lexer->getCurrLine(), token );
+            }
+        }
+        break;
+
+        case Lexer::_FUNCTION:
+        {
+            stmt = new Tree::Node( lexer->getCurrLine(), Lexer::_VAR_FUNCTION );
+            if ( token != Lexer::_COMMA && token != Lexer::_CLOSE_PARENTHESIS )
+            {
+                THROW_PARSING_ERROR( UNEXPECTED_TOKEN, lexer->getCurrLine(), token );
+            }
+        }
         break;
 
         case Lexer::_OPEN_SQUARE_BRACKET:
         {
+            stmt = new Tree::Node( lexer->getCurrLine(), Lexer::_ARRAY );
             token = lexer->getNextToken();
-            stmt->node_type = Lexer::_ENCLOSE_SQUARE_BRACKET;
-            stmt->push( parseExpression( lexer, token ) );
-
             if ( token != Lexer::_CLOSE_SQUARE_BRACKET )
             {
-                THROW_PARSING_ERROR( MISSING_TOKEN, lexer->getCurrLine(), Lexer::_CLOSE_SQUARE_BRACKET );
+                THROW_PARSING_ERROR( EXPECTED_TOKEN, lexer->getCurrLine(), Lexer::_CLOSE_SQUARE_BRACKET );
             }
             token = lexer->getNextToken();
-        }   
-        break;
-
-        case Lexer::_INCREMENT:
-        case Lexer::_DECREMENT:
-        {
-            stmt->push( new Tree::Node( lexer->getCurrLine(), token ) ); 
-            token = lexer->getNextToken();
-        }   
-        break;
-
-        default:
-        break;
-    }
-    return stmt;
-}
-
-Tree parseExprArray( Lexer* lexer, Lexer::Token& token )
-{
-    Tree stmt = new Tree::Node( lexer->getCurrLine(), Lexer::_ENCLOSE_SQUARE_BRACKET );
-    token = lexer->getNextToken();
-    Tree e;
-
-    if( token == Lexer::_CLOSE_SQUARE_BRACKET )
-    {
-        THROW_PARSING_ERROR( MISSING_TOKEN, lexer->getCurrLine(), Lexer::_OPEN_SQUARE_BRACKET );
-    }
-
-    stmt->push( parseExpression( lexer, token ) );
-
-    while ( token == Lexer::_COMMA )
-    {
-        token = lexer->getNextToken();
-        stmt->push( parseExpression( lexer, token ) );
-    }
-
-    if( token != Lexer::_CLOSE_SQUARE_BRACKET )
-    {
-        THROW_PARSING_ERROR( MISSING_TOKEN, lexer->getCurrLine(), Lexer::_CLOSE_SQUARE_BRACKET );
-    }
-    token = lexer->getNextToken();
-    return stmt;
-}
-
-Tree parseFunctParamIdAssign( Tree& id, Lexer* lexer, Lexer::Token& token )
-{
-    Tree stmt = new Tree::Node( lexer->getCurrLine(), Lexer::_ASSIGN );
-    stmt->push( id );
-
-    switch ( token )
-    {
-        case Lexer::_VAR_STRING:
-        case Lexer::_VAR_DOUBLE:
-        case Lexer::_VAR_FLOAT:
-        case Lexer::_VAR_LONG:
-        case Lexer::_VAR_INT:
-        case Lexer::_VAR_BOOL:
-        {
-            stmt->push( parseDataType( lexer, token ) );
+            if ( token != Lexer::_COMMA && token != Lexer::_CLOSE_PARENTHESIS )
+            {
+                THROW_PARSING_ERROR( UNEXPECTED_TOKEN, lexer->getCurrLine(), token );
+            }
         }
         break;
 
         default:
         {
-            // todo error
+            THROW_PARSING_ERROR( UNSUPPORTED_FUNCTION_PARAMETER, lexer->getCurrLine(), token );
         }
         break;
     }
     return stmt;
-}
-
-Tree parseFunctParamIdDeclaration( Tree& id, Lexer* lexer, Lexer::Token& token )
-{
-    Tree stmt = new Tree::Node( lexer->getCurrLine(), Lexer::_DECLARATION );
-    stmt->push( id );
-
-    switch ( token )
-    {
-        case Lexer::_VAR_STRING:
-        case Lexer::_VAR_DOUBLE:
-        case Lexer::_VAR_FLOAT:
-        case Lexer::_VAR_LONG:
-        case Lexer::_VAR_INT:
-        case Lexer::_VAR_BOOL:
-        {
-            stmt->push( parseDataType( lexer, token ) );
-        }
-        break;
-
-        default:
-        {
-            // todo error
-        }
-        break;
-    }
-    return stmt;
-}
-
-Tree parseFunctParamId( Lexer* lexer, Lexer::Token& token )
-{
-    Tree id = new Tree::Node( lexer->getCurrLine(), Lexer::_IDENTIFIER, lexer->getLexeme() );
-    token = lexer->getNextToken();
-    Tree expr;
-
-    switch ( token )
-    {
-        case Lexer::_ASSIGN:
-        {
-            expr = parseFunctParamIdAssign( id, lexer, token );
-        }
-        break;
-
-        case Lexer::_DECLARATION:
-        {
-            expr = parseFunctParamIdDeclaration( id, lexer, token );
-        }
-        break;
-    
-        default:
-        {
-            // todo error
-        }
-        break;
-    }
-    return expr;
-}
-
-Tree parseFunctAddrParam( Lexer* lexer, Lexer::Token& token )
-{
-    Tree expr = new Tree::Node( lexer->getCurrLine(), Lexer::_ADDRESS );
-    token = lexer->getNextToken();
-
-    switch ( token )
-    {
-        case Lexer::_IDENTIFIER:
-        {
-            expr->push( parseFunctParamId( lexer, token ) );
-        }
-        break;
-    
-        default:
-        {
-            // todo error
-        }
-        break;
-    }
-    return expr;
 }
 
 Tree parseFunctParameter( Lexer* lexer, Lexer::Token& token )
 {
     Tree expr;
-
     switch ( token )
     {
         case Lexer::_IDENTIFIER:
         {
-            expr = parseFunctParamId( lexer, token );
+            Tree identifier = new Tree::Node( lexer->getCurrLine(), Lexer::_IDENTIFIER, lexer->getLexeme() );
+            token = lexer->getNextToken();
+
+            switch ( token )
+            {
+                case Lexer::_EQUAL:
+                {
+                    token = lexer->getNextToken();
+                    expr = new Tree::Node( lexer->getCurrLine(), Lexer::_ASSIGN );
+                    expr->push( identifier );
+                    expr->push( getFunctParam( lexer, token ) );
+                }
+                break;
+
+                case Lexer::_COLON:
+                {
+                    token = lexer->getNextToken();
+                    expr = new Tree::Node( lexer->getCurrLine(), Lexer::_DECLARATION );
+                    expr->push( identifier );
+                    expr->push( getFunctParam( lexer, token ) );
+                }
+                break;
+
+                case Lexer::_COMMA:
+                {
+                    expr = identifier;
+                }
+                break;
+            
+                default:
+                {
+                    THROW_PARSING_ERROR( UNEXPECTED_TOKEN, lexer->getCurrLine(), token );
+                }
+                break;
+            }
         }
         break;
 
         case Lexer::_ADDRESS:
         {
-            expr = parseFunctAddrParam( lexer, token );
+            expr = new Tree::Node( lexer->getCurrLine(), Lexer::_ADDRESS );
+            token = lexer->getNextToken();
+            expr->push( parseFunctParameter( lexer, token ) );
         }
         break;
 
@@ -640,19 +638,19 @@ Tree parseFunctParameter( Lexer* lexer, Lexer::Token& token )
             {
                 case Lexer::_IDENTIFIER:
                 {
-                    expr->push( parseFunctParamId( lexer, token ) );
+                    expr->push( parseFunctParameter( lexer, token ) );
                 }
                 break;
 
                 case Lexer::_ADDRESS:
                 {
-                    expr->push( parseFunctAddrParam( lexer, token ) );
+                    expr->push( parseFunctParameter( lexer, token ) );
                 }
                 break;
             
                 default:
                 {
-                    // todo error
+                    THROW_PARSING_ERROR( UNEXPECTED_TOKEN, lexer->getCurrLine(), token );
                 }
                 break;
             }
@@ -661,7 +659,7 @@ Tree parseFunctParameter( Lexer* lexer, Lexer::Token& token )
 
         default:
         {
-            // todo error
+            THROW_PARSING_ERROR( UNEXPECTED_TOKEN, lexer->getCurrLine(), token );
         }
         break;
     }
@@ -670,15 +668,20 @@ Tree parseFunctParameter( Lexer* lexer, Lexer::Token& token )
 
 Tree parseFunctionParameters( Lexer* lexer, Lexer::Token& token )
 {
-    int ln = lexer->getCurrLine();
+    Tree parameters = new Tree::Node( lexer->getCurrLine(), Lexer::_PARAMETERS );
     token = lexer->getNextToken();
 
-    Tree expr = new Tree::Node( ln, Lexer::_ENCLOSE_PARENTHESIS );
-    expr->push( parseFunctParameter( lexer, token ) );
+    if( token == Lexer::_CLOSE_PARENTHESIS )
+    {
+        token = lexer->getNextToken();
+        return parameters;
+    }
+
+    parameters->push( parseFunctParameter( lexer, token ) );
     while ( token == Lexer::_COMMA )
     {
         token = lexer->getNextToken();
-        expr->push( parseFunctParameter( lexer, token ) );
+        parameters->push( parseFunctParameter( lexer, token ) );
     }
 
     if( token != Lexer::_CLOSE_PARENTHESIS )
@@ -687,7 +690,7 @@ Tree parseFunctionParameters( Lexer* lexer, Lexer::Token& token )
     }
 
     token = lexer->getNextToken();
-    return expr;
+    return parameters;
 }
 
 Tree parseFunction( Lexer* lexer, Lexer::Token& token )
@@ -710,6 +713,89 @@ Tree parseHost( Lexer* lexer, Lexer::Token& token )
         function->push( params->nodes[ i ] );
     }
     return function;
+}
+
+Tree parseExpressionIdentifier( Lexer* lexer, Lexer::Token& token )
+{   
+    Tree identifier = new Tree::Node( Lexer::_IDENTIFIER, lexer->getLexeme() );
+    token = lexer->getNextToken();
+    Tree stmt;
+
+    switch ( token )
+    {
+        case Lexer::_OPEN_PARENTHESIS: // function call
+        {
+            stmt = identifier;
+            stmt->node_type = Lexer::_FUNCTION_CALL;
+            stmt->line = lexer->getCurrLine();
+            token = lexer->getNextToken();
+
+            if ( token != Lexer::_CLOSE_PARENTHESIS )
+            {
+                stmt->push( parseExpression( lexer, token ) );
+                while( token == Lexer::_COMMA )
+                {
+                    token = lexer->getNextToken();
+                    stmt->push( parseExpression( lexer, token ) );
+                }
+                if ( token != Lexer::_CLOSE_PARENTHESIS )
+                {
+                    THROW_PARSING_ERROR( UNEXPECTED_TOKEN, lexer->getCurrLine(), token );
+                }
+                token = lexer->getNextToken();
+            }
+        }
+        break;
+
+        case Lexer::_OPEN_SQUARE_BRACKET: // array index accessing
+        {
+            stmt = identifier;
+            stmt->node_type = Lexer::_ARRAY_INDEXED;
+            stmt->line = lexer->getCurrLine();
+            token = lexer->getNextToken();
+
+            stmt->push( parseExpression( lexer, token ) );
+            if ( token != Lexer::_CLOSE_SQUARE_BRACKET )
+            {
+                THROW_PARSING_ERROR( UNEXPECTED_TOKEN, lexer->getCurrLine(), token );
+            }
+            token = lexer->getNextToken();
+        }
+        break;
+
+        case Lexer::_EQUAL:
+        {
+            stmt = new Tree::Node( lexer->getCurrLine(), Lexer::_ASSIGN );
+            token = lexer->getNextToken();
+            stmt->push( identifier );
+            stmt->push( parseExpression( lexer, token ) );
+        }
+        break;
+
+        case Lexer::_ADD_EQUAL:
+        case Lexer::_SUB_EQUAL:
+        case Lexer::_MUL_EQUAL:
+        case Lexer::_DIV_EQUAL:
+        case Lexer::_EXP_EQUAL:
+        case Lexer::_MOD_EQUAL:
+        case Lexer::_INVERT_EQUAL:
+        {
+            stmt = new Tree::Node( lexer->getCurrLine(), token ); 
+            token = lexer->getNextToken();
+
+            stmt->push( identifier );
+            stmt->push( parseExpression( lexer, token ) ); 
+        }
+        break;
+
+        default:
+        {
+            stmt = identifier;
+        }
+        break;
+    }
+    
+    return stmt;
 }
 
 Tree parseExpression( Lexer* lexer, Lexer::Token& token )
@@ -743,28 +829,14 @@ Tree parseExpression( Lexer* lexer, Lexer::Token& token )
 
             case Lexer::_IDENTIFIER:
             {
-                operands.push( parseExprId( lexer, token ) );
-                op = false;
-            }
-            break;
-
-            case Lexer::_FUNCTION:
-            {
-                operands.push( parseFunction( lexer, token ) );
-                op = false;
-            }
-            break;
-
-            case Lexer::_HOST:
-            {
-                operands.push( parseHost( lexer, token ) );
+                operands.push( parseExpressionIdentifier( lexer, token ) );
                 op = false;
             }
             break;
 
             case Lexer::_OPEN_SQUARE_BRACKET:
             {
-                operands.push( parseExprArray( lexer, token ) );
+                operands.push( parseArrayObject( lexer, token ) );
                 op = false;
             }
             break;
@@ -854,6 +926,12 @@ Tree parseExpression( Lexer* lexer, Lexer::Token& token )
             case Lexer::_NOT_EQUAL:
             case Lexer::_DECREMENT:
             case Lexer::_INCREMENT:
+            case Lexer::_ADD_EQUAL:
+            case Lexer::_SUB_EQUAL:
+            case Lexer::_MUL_EQUAL:
+            case Lexer::_DIV_EQUAL:
+            case Lexer::_EXP_EQUAL:
+            case Lexer::_INVERT_EQUAL:
             {
                 if ( !op )
                 {
@@ -880,147 +958,160 @@ Tree parseExpression( Lexer* lexer, Lexer::Token& token )
     return operands.top();
 }
 
-Tree parseAssignment( Tree& id, Lexer* lexer, Lexer::Token& token )
-{
-    Tree stmt = new Tree::Node( lexer->getCurrLine(), Lexer::_ASSIGN );
-    stmt->push( id );
-
-    switch ( token )
-    {
-        case Lexer::_FUNCTION:
-        {
-            token = lexer->getNextToken();
-            stmt->push( parseFunction( lexer, token ) );
-        }
-        break;
-
-        default:
-        {
-            stmt->push( parseExpression( lexer, token ) );
-            if ( token != Lexer::_SEMICOLON )
-            {
-                THROW_PARSING_ERROR( MISSING_TOKEN, lexer->getCurrLine(), Lexer::_SEMICOLON );
-            }
-            token = lexer->getNextToken();
-        }
-        break;
-    }
-    return stmt;
-}
-
-Tree parseDeclaration( Tree& id, Lexer* lexer, Lexer::Token& token )
-{
-    Tree stmt = new Tree::Node( lexer->getCurrLine(), Lexer::_DECLARATION );
-    stmt->push( id );
-    
-    switch ( token )
-    {
-        case Lexer::_FUNCTION:
-        {
-            token = lexer->getNextToken();
-            stmt->push( parseFunction( lexer, token ) );
-        }
-        break;
-
-        default:
-        {
-            stmt->push( parseExpression( lexer, token ) );
-            if ( token != Lexer::_SEMICOLON )
-            {
-                THROW_PARSING_ERROR( MISSING_TOKEN, lexer->getCurrLine(), Lexer::_SEMICOLON );
-            }
-            token = lexer->getNextToken();
-        }
-        break;
-    }
-
-    return stmt;
-}
-
-Tree parseScopeBlock( Lexer* lexer, Lexer::Token& token )
-{
-    Tree stmts = new Tree::Node( lexer->getCurrLine(), Lexer::_ENCLOSE_CURLY_BRACKET );
-    token = lexer->getNextToken();
-
-    switch ( token )
-    {
-        case Lexer::_IF:
-        {   
-            stmts->push( parseIfStatement( lexer, token ) );
-            while ( token == Lexer::_ELSE )
-            {
-                stmts->push( parseElseStatement( lexer, token ) );
-            }
-        }
-        break;
-
-        case Lexer::_FOR:
-        {
-            token = lexer->getNextToken();
-            stmts->push( parseForLoop( lexer, token ) );          
-        }
-        break;
-
-        case Lexer::_WHILE:
-        {  
-            token = lexer->getNextToken();
-            stmts->push( parseWhileLoop( lexer, token ) );
-        }
-        break;
-
-        case Lexer::_OPEN_CURLY_BRACKET:
-        {
-            stmts->push( parseScopeBlock( lexer, token ) ); 
-        }
-        break;
-
-        default:
-        {
-            THROW_PARSING_ERROR( UNEXPECTED_TOKEN, lexer->getCurrLine(),  token );
-        }
-        break;
-    }      
-    return stmts;
-}
-
-Tree parseConstant( Lexer* lexer, Lexer::Token& token )
+Tree parseRightside( Lexer* lexer, Lexer::Token& token )
 {
     Tree stmt;
     switch ( token )
     {
-        case Lexer::_IDENTIFIER:
+        case Lexer::_FUNCTION:
         {
-            Tree id = new Tree::Node( Lexer::_IDENTIFIER, lexer->getLexeme() );
-            token = lexer->getNextToken();
-            stmt = parseIdentifier( id, lexer, token );
+            stmt = parseFunction( lexer, token );
         }
         break;
 
-        case Lexer::_COLON:
+        case Lexer::_CONST:
         {
-            Tree id = new Tree::Node( Lexer::_IDENTIFIER, lexer->getLexeme() );
+            stmt = new Tree::Node( lexer->getCurrLine(), Lexer::_CONST, lexer->getLexeme() );
             token = lexer->getNextToken();
-            stmt = parseDeclaration( id, lexer, token );
-        }
-        break;
 
-        case Lexer::_ASSIGN:
-        {
-            Tree id = new Tree::Node( Lexer::_IDENTIFIER, lexer->getLexeme() );
-            token = lexer->getNextToken();
-            stmt = parseAssignment( id, lexer, token );
-        }
-        break;
+            switch ( token )
+            {
+                case Lexer::_FUNCTION:
+                {
+                    stmt->push( parseFunction( lexer, token ) );
+                }
+                break;
 
-        case Lexer::_SEMICOLON:
-        {
-            THROW_PARSING_ERROR( UNEXPECTED_TOKEN, lexer->getCurrLine(),  token );
+                case Lexer::_VAR_STRING:
+                case Lexer::_VAR_DOUBLE:
+                case Lexer::_VAR_FLOAT:
+                case Lexer::_VAR_LONG:
+                case Lexer::_VAR_INT:
+                {
+                    stmt->push( parseDataType( lexer, token ) );
+
+                    if ( token != Lexer::_SEMICOLON )
+                    {
+                        THROW_PARSING_ERROR( EXPECTED_TOKEN, lexer->getCurrLine(), Lexer::_SEMICOLON );
+                    }
+                    token = lexer->getNextToken();
+                }
+                break;
+
+                case Lexer::_STRING:
+                case Lexer::_DOUBLE:
+                case Lexer::_FLOAT:
+                case Lexer::_LONG:
+                case Lexer::_INT:
+                case Lexer::_BOOL:
+                {
+                    stmt = parseValue( lexer, token );
+
+                    if ( token != Lexer::_SEMICOLON )
+                    {
+                        THROW_PARSING_ERROR( EXPECTED_TOKEN, lexer->getCurrLine(), Lexer::_SEMICOLON );
+                    }
+                    token = lexer->getNextToken();
+                }
+                break;
+
+                default:
+                {
+                    THROW_PARSING_ERROR( UNEXPECTED_TOKEN, lexer->getCurrLine(), token );
+                }
+                break;
+            }
+            
         }
         break;
         
         default:
         {
-            THROW_PARSING_ERROR( UNEXPECTED_TOKEN, lexer->getCurrLine(),  token );
+            stmt = parseExpression( lexer, token );
+
+            if ( token != Lexer::_SEMICOLON )
+            {
+                THROW_PARSING_ERROR( EXPECTED_TOKEN, lexer->getCurrLine(), Lexer::_SEMICOLON );
+            }
+            token = lexer->getNextToken();
+        }
+        break;
+    }
+    return stmt;
+}
+
+Tree parseDeclaration( Lexer* lexer, Lexer::Token& token )
+{
+    Tree stmt;
+    switch ( token )
+    {
+        case Lexer::_FUNCTION:
+        {
+            stmt = parseFunction( lexer, token );
+        }
+        break;
+
+        case Lexer::_HOST:
+        {
+            stmt = parseHost( lexer, token );
+
+            if ( token != Lexer::_SEMICOLON )
+            {
+                THROW_PARSING_ERROR( EXPECTED_TOKEN, lexer->getCurrLine(), Lexer::_SEMICOLON );
+            }
+            token = lexer->getNextToken();
+        }
+        break;
+
+        case Lexer::_VAR_STRING:
+        case Lexer::_VAR_DOUBLE:
+        case Lexer::_VAR_FLOAT:
+        case Lexer::_VAR_LONG:
+        case Lexer::_VAR_INT:
+        {
+            //stmt = parseDataType( lexer, token );
+            stmt = parseExpression( lexer, token );
+            if ( token != Lexer::_SEMICOLON )
+            {
+                THROW_PARSING_ERROR( EXPECTED_TOKEN, lexer->getCurrLine(), Lexer::_SEMICOLON );
+            }
+            token = lexer->getNextToken();
+        }
+        break;
+
+        case Lexer::_STRING:
+        case Lexer::_DOUBLE:
+        case Lexer::_FLOAT:
+        case Lexer::_LONG:
+        case Lexer::_INT:
+        case Lexer::_BOOL:
+        {
+            //stmt = parseValue( lexer, token );
+            stmt = parseExpression( lexer, token );
+            if ( token != Lexer::_SEMICOLON )
+            {
+                THROW_PARSING_ERROR( EXPECTED_TOKEN, lexer->getCurrLine(), Lexer::_SEMICOLON );
+            }
+            token = lexer->getNextToken();
+        }
+        break;
+
+
+        case Lexer::_CONST:
+        {
+            token = lexer->getNextToken();
+            stmt = new Tree::Node( lexer->getCurrLine(), Lexer::_CONST, lexer->getLexeme() );
+            stmt->push( parseDeclaration( lexer, token ) );
+        }
+        break;
+
+        // case Lexer::_STRUCT: TODO: for the future
+        // {}
+        // break;
+        
+        default:
+        {
+            THROW_PARSING_ERROR( UNDETERMIND_STATIC_TYPE, lexer->getCurrLine(), token );
         }
         break;
     }
@@ -1028,50 +1119,111 @@ Tree parseConstant( Lexer* lexer, Lexer::Token& token )
     return stmt;
 }
 
-Tree parseIdentifier( Tree& id, Lexer* lexer, Lexer::Token& token )
+Tree parseIdentifier( Lexer* lexer, Lexer::Token& token )
 {   
+    Tree identifier = new Tree::Node( Lexer::_IDENTIFIER, lexer->getLexeme() );
+    token = lexer->getNextToken();
     Tree stmt;
+
     switch ( token )
     {
         case Lexer::_EQUAL:
         {
             token = lexer->getNextToken();
-            stmt = parseAssignment( id, lexer, token );
+            stmt = new Tree::Node( lexer->getCurrLine(), Lexer::_ASSIGN );
+            stmt->push( identifier );
+            stmt->push( parseRightside( lexer, token ) );
         }
         break;
 
         case Lexer::_COLON:
         {
             token = lexer->getNextToken();
-            stmt = parseDeclaration( id, lexer, token );
+            stmt = new Tree::Node( lexer->getCurrLine(), Lexer::_DECLARATION );
+            stmt->push( identifier );
+            stmt->push( parseDeclaration( lexer, token ) );
         }
         break;
 
-        case Lexer::_INVERT_EQUAL:
-        case Lexer::_EQUAL_EQUAL:
+        case Lexer::_OPEN_PARENTHESIS: // function call
+        {
+            stmt = identifier;
+            stmt->node_type = Lexer::_FUNCTION_CALL;
+            stmt->line = lexer->getCurrLine();
+            token = lexer->getNextToken();
+
+            if ( token != Lexer::_CLOSE_PARENTHESIS )
+            {
+                stmt->push( parseExpression( lexer, token ) );
+                while( token == Lexer::_COMMA )
+                {
+                    token = lexer->getNextToken();
+                    stmt->push( parseExpression( lexer, token ) );
+                }
+
+                if ( token != Lexer::_CLOSE_PARENTHESIS )
+                {
+                    THROW_PARSING_ERROR( UNEXPECTED_TOKEN, lexer->getCurrLine(), token );
+                }
+                token = lexer->getNextToken();
+
+                if ( token != Lexer::_SEMICOLON )
+                {
+                    THROW_PARSING_ERROR( EXPECTED_TOKEN, lexer->getCurrLine(), Lexer::_SEMICOLON );
+                }
+                token = lexer->getNextToken();
+            }
+        }
+        break;
+
+        case Lexer::_OPEN_SQUARE_BRACKET: // array index accessing
+        {
+            stmt = identifier;
+            stmt->node_type = Lexer::_ARRAY_INDEXED;
+            stmt->line = lexer->getCurrLine();
+            token = lexer->getNextToken();
+
+            stmt->push( parseExpression( lexer, token ) );
+
+            if ( token != Lexer::_ENCLOSE_SQUARE_BRACKET )
+            {
+                THROW_PARSING_ERROR( UNEXPECTED_TOKEN, lexer->getCurrLine(), token );
+            }
+            token = lexer->getNextToken();
+
+            if ( token != Lexer::_SEMICOLON )
+            {
+                THROW_PARSING_ERROR( EXPECTED_TOKEN, lexer->getCurrLine(), Lexer::_SEMICOLON );
+            }
+            token = lexer->getNextToken();
+        }
+        break;
+
         case Lexer::_ADD_EQUAL:
         case Lexer::_SUB_EQUAL:
         case Lexer::_MUL_EQUAL:
         case Lexer::_DIV_EQUAL:
         case Lexer::_EXP_EQUAL:
-        case Lexer::_AND_EQUAL:
-        case Lexer::_NOT_EQUAL:
-        case Lexer::_OR_EQUAL:
-        case Lexer::_GREATER_EQUAL:
-        case Lexer::_LESS_EQUAL:
+        case Lexer::_MOD_EQUAL:
+        case Lexer::_INVERT_EQUAL:
         {
             stmt = new Tree::Node( lexer->getCurrLine(), token ); 
             token = lexer->getNextToken();
 
-            stmt->push( id );
+            stmt->push( identifier );
             stmt->push( parseExpression( lexer, token ) ); 
+            if ( token != Lexer::_SEMICOLON )
+            {
+                THROW_PARSING_ERROR( EXPECTED_TOKEN, lexer->getCurrLine(), Lexer::_SEMICOLON );
+            }
+            token = lexer->getNextToken();
         }
         break;
 
         case Lexer::_SEMICOLON:
         {
             token = lexer->getNextToken();
-            return id;
+            stmt = identifier;
         }
         break;
         
@@ -1085,69 +1237,12 @@ Tree parseIdentifier( Tree& id, Lexer* lexer, Lexer::Token& token )
     return stmt;
 }
 
-Tree parseStatement( Lexer* lexer, Lexer::Token& token )
+Tree parseConstant( Lexer* lexer, Lexer::Token& token )
 {
-    Tree stmt;
-    switch ( token )
-    {
-        case Lexer::_IDENTIFIER:
-        {   
-            Tree id = new Tree::Node( Lexer::_IDENTIFIER, lexer->getLexeme() );
-            token = lexer->getNextToken();
-            stmt = parseIdentifier( id, lexer, token );
-        }
-        break;
-
-        case Lexer::_CONST:
-        {   
-            token = lexer->getNextToken();
-            stmt = parseConstant( lexer, token );
-        }
-        break;
-
-        case Lexer::_RETURN:
-        {
-            stmt = new Tree::Node( lexer->getCurrLine(), Lexer::_RETURN );
-            token = lexer->getNextToken(); 
-            stmt->push( parseExpression( lexer, token ) );
-
-            if ( token != Lexer::_SEMICOLON )
-            {
-                THROW_PARSING_ERROR( MISSING_TOKEN, lexer->getCurrLine(), Lexer::_SEMICOLON );
-            }  
-        }
-        break;
-
-        case Lexer::_BREAK:
-        case Lexer::_CONTINUE:
-        {
-            stmt = new Tree::Node( token ); 
-        }
-        break; 
-
-        case Lexer::_SEMICOLON:
-        {
-            stmt = new Tree::Node( token );
-            token = lexer->getNextToken();
-        }
-        break; 
-
-        case Lexer::_IF: // TODO
-        case Lexer::_FOR:
-        case Lexer::_WHILE:
-        case Lexer::_OPEN_CURLY_BRACKET:
-        {  
-            stmt = parseScopeBlock( lexer, token );   
-        }
-        break;
-
-        default:
-        {
-            THROW_PARSING_ERROR( UNEXPECTED_TOKEN, lexer->getCurrLine(),  token );
-        }
-        break;
-    }      
-    return stmt;  
+    token = lexer->getNextToken();
+    Tree stmt = new Tree::Node( lexer->getCurrLine(), Lexer::_CONST, lexer->getLexeme() );
+    stmt->push( parseIdentifier( lexer, token ) );
+    return stmt;
 }
 
 bool Parser::parse( Lexer* lexer )
@@ -1164,32 +1259,17 @@ bool Parser::parse( Lexer* lexer )
             {
                 case Lexer::_IDENTIFIER:
                 {   
-                    Tree id = new Tree::Node( Lexer::_IDENTIFIER, lexer->getLexeme() );
-                    token = lexer->getNextToken();
-                    _parse_tree->push( parseIdentifier( id, lexer, token ) );
+                    _parse_tree->push( parseIdentifier( lexer, token ) );
                 }
                 break;
 
                 case Lexer::_CONST:
                 {   
-                    token = lexer->getNextToken();
                     _parse_tree->push( parseConstant( lexer, token ) );
-                }
-                break;
-
-                case Lexer::_ASSIGN:
-                {
-                    Tree id = new Tree::Node( Lexer::_IDENTIFIER, lexer->getLexeme() );
-                    token = lexer->getNextToken();
-                    _parse_tree->push( parseAssignment( id, lexer, token ) );
-                }
-                break;
-
-                case Lexer::_DECLARATION:
-                {
-                    Tree id = new Tree::Node( Lexer::_IDENTIFIER, lexer->getLexeme() );
-                    token = lexer->getNextToken();
-                    _parse_tree->push( parseDeclaration( id, lexer, token ) );
+                    if ( token == Lexer::_SEMICOLON )
+                    {
+                        token = lexer->getNextToken();
+                    }
                 }
                 break;
 
@@ -1223,9 +1303,11 @@ void printNode(int tabs, Tree& ref)
 
 void Parser::printTree()
 {
+    std::cout <<"\n\nParser \n";
     for(int i=0; i<_parse_tree->nodes.size(); i++)
     {
         printNode( 0, _parse_tree->nodes[ i ] );
+        std::cout <<"\n";
     }
 }
 

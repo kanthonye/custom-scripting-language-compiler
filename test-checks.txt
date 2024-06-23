@@ -1,0 +1,91 @@
+num;
+num = 4;
+num = 4.f;
+num = 4.0;
+
+num = int;
+num = float;
+num = double;
+
+num = int(7);
+num = float(7);
+num = double(7);
+
+num : 4;
+num : 4.f;
+num : 4.0;
+
+num : int;
+num : float;
+num : double;
+
+num : const int(7);
+num : const float(7);
+num : const float( 7 + num );
+
+const num : const int(7);
+const num : const float(7);
+const num : const float( 7 + num );
+
+const num = const int(7);
+const num = const float(7);
+const num = const double(7);
+
+num = "";
+num = "Hello World";
+num = "the message say \"hellow world\" here i am.";
+num = "HELLOW" + " " + "WORLD";
+
+str : "";
+str : "Hello World";
+str : "the message say \"hellow world\" here i am.";
+str : "HELLOW" + " " + "WORLD";
+
+ var = 1.0 / (1.0 + x * c + y * b * b );
+ var = k += 5 / (1.0 + x * c + y * b * b );
+
+
+ // static function declaration, that takes dynamic parameters
+add : function () 
+{
+}
+
+const add : function () 
+{
+}
+
+// static function declaration, that takes static and dynamic parameters
+add : function ( x, y:float, @z:float, const x, const y:float, const @z:float, a:[], const a:[] ) 
+{
+
+}
+
+// dynamic function declaration. storing function as a variable
+add = function ( y=float, @z=float, const x, const y=float, const @z=float, a=[], const a=[]) 
+{
+}
+
+
+const main : function()
+{
+    file = open( "somefile/somewhere/image.jpu" );
+    size = sizeof( file );
+    data = []( size );
+    fread( data, size, file );
+    close( file );
+
+    print( data );
+    token: "";
+
+    for( i=0; i<size; i++)
+    {
+        k = data[i];
+        if( k == " " )
+        {
+            break;
+        }
+        token += k;
+    }
+
+    print( token );
+}

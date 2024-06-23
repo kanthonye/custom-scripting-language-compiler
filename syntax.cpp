@@ -505,6 +505,90 @@ Tree analyzeOperation( Tree& operand )
         }
         break;
 
+        case Lexer::_ADD_EQUAL:
+        {   
+            Tree n = new Tree::Node( Lexer::_ADD );
+            n->push( getIdentifier( 0, operand->nodes[ 0 ] ) );
+            n->push( analyzeOperation( operand->nodes[ 1 ] ) );
+
+            op = new Tree::Node( Lexer::_ASSIGN );
+            op->push( n->nodes[ 0 ] );
+            op->push( n );
+        }
+        break;
+
+        case Lexer::_SUB_EQUAL:
+        {   
+            Tree n = new Tree::Node( Lexer::_SUB );
+            n->push( getIdentifier( 0, operand->nodes[ 0 ] ) );
+            n->push( analyzeOperation( operand->nodes[ 1 ] ) );
+
+            op = new Tree::Node( Lexer::_ASSIGN );
+            op->push( n->nodes[ 0 ] );
+            op->push( n );
+        }
+        break;
+
+        case Lexer::_MUL_EQUAL:
+        {   
+            Tree n = new Tree::Node( Lexer::_MUL );
+            n->push( getIdentifier( 0, operand->nodes[ 0 ] ) );
+            n->push( analyzeOperation( operand->nodes[ 1 ] ) );
+
+            op = new Tree::Node( Lexer::_ASSIGN );
+            op->push( n->nodes[ 0 ] );
+            op->push( n );
+        }
+        break;
+
+        case Lexer::_DIV_EQUAL:
+        {   
+            Tree n = new Tree::Node( Lexer::_DIV );
+            n->push( getIdentifier( 0, operand->nodes[ 0 ] ) );
+            n->push( analyzeOperation( operand->nodes[ 1 ] ) );
+
+            op = new Tree::Node( Lexer::_ASSIGN );
+            op->push( n->nodes[ 0 ] );
+            op->push( n );
+        }
+        break;
+
+        case Lexer::_MOD_EQUAL:
+        {   
+            Tree n = new Tree::Node( Lexer::_MOD );
+            n->push( getIdentifier( 0, operand->nodes[ 0 ] ) );
+            n->push( analyzeOperation( operand->nodes[ 1 ] ) );
+
+            op = new Tree::Node( Lexer::_ASSIGN );
+            op->push( n->nodes[ 0 ] );
+            op->push( n );
+        }
+        break;
+
+        case Lexer::_INVERT_EQUAL:
+        {   
+            Tree n = new Tree::Node( Lexer::_INVERT );
+            n->push( getIdentifier( 0, operand->nodes[ 0 ] ) );
+            n->push( analyzeOperation( operand->nodes[ 1 ] ) );
+
+            op = new Tree::Node( Lexer::_ASSIGN );
+            op->push( n->nodes[ 0 ] );
+            op->push( n );
+        }
+        break;
+
+        case Lexer::_EXP_EQUAL:
+        {   
+            Tree n = new Tree::Node( Lexer::_EXP );
+            n->push( getIdentifier( 0, operand->nodes[ 0 ] ) );
+            n->push( analyzeOperation( operand->nodes[ 1 ] ) );
+
+            op = new Tree::Node( Lexer::_ASSIGN );
+            op->push( n->nodes[ 0 ] );
+            op->push( n );
+        }
+        break;
+
         case Lexer::_FUNCTION_CALL:
         {   
             op = new Tree::Node( Lexer::_FUNCTION_CALL, operand->id );
@@ -800,6 +884,7 @@ void printSyntaxTree(int tabs, Tree& ref)
 void Syntax::printTree()
 {
     if( !_syntax_tree ) return;
+    std::cout <<"\n\nSyntax \n";
     for(int i=0; i<_syntax_tree->nodes.size(); i++)
     {
         printSyntaxTree( 0, _syntax_tree->nodes[ i ] );
