@@ -63,14 +63,14 @@ Tree analyzeParameter( Tree& node )
         }
         break;
     }
-    
+    return var;
 }
 Tree analyzeParameters( Tree& node )
 {
     Tree parameters = new Tree::Node( node->line, Lexer::_ENCLOSE_PARENTHESIS );
     for( int i = 0; i < node->nodes.size(); i++ )
     {
-        parameters->push( node->nodes[ i ] );
+        parameters->push( analyzeParameter( node->nodes[ i ] ) );
     }
     return parameters;
 }
@@ -126,13 +126,12 @@ Tree analyzeHost( Tree& function )
     return function_definition;
 }
 
-Tree getIdentifier( uint32_t flags, Tree& node )
+Tree getIdentifier( Tree& node )
 {
     Tree var = new Tree::Node();
     if ( node->nodes.empty() )
     {
         var->node_type = Lexer::_VAR;
-        var->flags = flags;
         var->id = node->id;
     }
     else
@@ -302,7 +301,7 @@ Tree analyzeOperation( Tree& operand )
 
         case Lexer::_IDENTIFIER:
         {   
-            op = getIdentifier( 0, operand );
+            op = getIdentifier( operand );
         }
         break;
 
@@ -393,7 +392,7 @@ Tree analyzeOperation( Tree& operand )
         case Lexer::_ADD_EQUAL:
         {   
             Tree n = new Tree::Node( Lexer::_ADD );
-            n->push( getIdentifier( 0, operand->nodes[ 0 ] ) );
+            n->push( getIdentifier( operand->nodes[ 0 ] ) );
             n->push( analyzeOperation( operand->nodes[ 1 ] ) );
 
             op = new Tree::Node( Lexer::_ASSIGN );
@@ -405,7 +404,7 @@ Tree analyzeOperation( Tree& operand )
         case Lexer::_SUB_EQUAL:
         {   
             Tree n = new Tree::Node( Lexer::_SUB );
-            n->push( getIdentifier( 0, operand->nodes[ 0 ] ) );
+            n->push( getIdentifier( operand->nodes[ 0 ] ) );
             n->push( analyzeOperation( operand->nodes[ 1 ] ) );
 
             op = new Tree::Node( Lexer::_ASSIGN );
@@ -417,7 +416,7 @@ Tree analyzeOperation( Tree& operand )
         case Lexer::_MUL_EQUAL:
         {   
             Tree n = new Tree::Node( Lexer::_MUL );
-            n->push( getIdentifier( 0, operand->nodes[ 0 ] ) );
+            n->push( getIdentifier( operand->nodes[ 0 ] ) );
             n->push( analyzeOperation( operand->nodes[ 1 ] ) );
 
             op = new Tree::Node( Lexer::_ASSIGN );
@@ -429,7 +428,7 @@ Tree analyzeOperation( Tree& operand )
         case Lexer::_DIV_EQUAL:
         {   
             Tree n = new Tree::Node( Lexer::_DIV );
-            n->push( getIdentifier( 0, operand->nodes[ 0 ] ) );
+            n->push( getIdentifier( operand->nodes[ 0 ] ) );
             n->push( analyzeOperation( operand->nodes[ 1 ] ) );
 
             op = new Tree::Node( Lexer::_ASSIGN );
@@ -441,7 +440,7 @@ Tree analyzeOperation( Tree& operand )
         case Lexer::_MOD_EQUAL:
         {   
             Tree n = new Tree::Node( Lexer::_MOD );
-            n->push( getIdentifier( 0, operand->nodes[ 0 ] ) );
+            n->push( getIdentifier( operand->nodes[ 0 ] ) );
             n->push( analyzeOperation( operand->nodes[ 1 ] ) );
 
             op = new Tree::Node( Lexer::_ASSIGN );
@@ -453,7 +452,7 @@ Tree analyzeOperation( Tree& operand )
         case Lexer::_INVERT_EQUAL:
         {   
             Tree n = new Tree::Node( Lexer::_INVERT );
-            n->push( getIdentifier( 0, operand->nodes[ 0 ] ) );
+            n->push( getIdentifier( operand->nodes[ 0 ] ) );
             n->push( analyzeOperation( operand->nodes[ 1 ] ) );
 
             op = new Tree::Node( Lexer::_ASSIGN );
@@ -465,7 +464,7 @@ Tree analyzeOperation( Tree& operand )
         case Lexer::_EXP_EQUAL:
         {   
             Tree n = new Tree::Node( Lexer::_EXP );
-            n->push( getIdentifier( 0, operand->nodes[ 0 ] ) );
+            n->push( getIdentifier( operand->nodes[ 0 ] ) );
             n->push( analyzeOperation( operand->nodes[ 1 ] ) );
 
             op = new Tree::Node( Lexer::_ASSIGN );
@@ -510,7 +509,7 @@ Tree analyzeNode( Tree& node )
     {
         case Lexer::_IDENTIFIER:
         {   
-            var = getIdentifier( 0, node );
+            var = getIdentifier( node );
         }
         break;
 
