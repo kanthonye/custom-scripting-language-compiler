@@ -59,6 +59,8 @@ public:
         int flags;   // this property is set by the syntax analyzer
         int line;    // this property is set by the lexical analyzer, it holds the code line number
 
+        bool is_static;
+        bool is_const;
         int refcount;
         //friend Tree;
     };

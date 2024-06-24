@@ -1,0 +1,7 @@
+add : function () 
+{
+}
+
+const add : function () 
+{
+}

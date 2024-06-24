@@ -14,7 +14,7 @@
 class Syntax {
 public:
 
-    enum{ CONST = 0, ADDRESS = 1, STATIC_VARIABLE = 2 };
+    enum{ CONST = 0, ADDRESS = 1 };
     bool analyze( Parser* parser );
     void printTree();
     void clear();

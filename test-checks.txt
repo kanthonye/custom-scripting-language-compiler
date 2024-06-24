@@ -41,8 +41,8 @@ str : "Hello World";
 str : "the message say \"hellow world\" here i am.";
 str : "HELLOW" + " " + "WORLD";
 
- var = 1.0 / (1.0 + x * c + y * b * b );
- var = k += 5 / (1.0 + x * c + y * b * b );
+var = 1.0 / (1.0 + x * c + y * b * b );
+var = k += 5 / (1.0 + x * c + y * b * b );
 
 
  // static function declaration, that takes dynamic parameters

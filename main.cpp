@@ -36,7 +36,7 @@ int main( int input_count, char* input_values[] )
     }   
     parser.printTree();
 
-    std::cout << "\n\n\n";
+    std::cout << "\n------------------------------------------------------\n";
 
     Syntax syntax;
     if( !syntax.analyze( &parser ) )
