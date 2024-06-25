@@ -1,16 +1,47 @@
 #include "syntax.hpp"
 
-// #define SYNTAX_ERR(parser, err, tok) parser->syntaxError( __FUNCTION__, __LINE__, err, parser->toString( tok ) )
-// void Syntax::syntaxError( const char* func, int ln, Token token, const char* msg )
-// {
-//     const char* err = nullptr;
-//     int line = preprocessor.getCurrentLineNumber();
-//     std::string errstr = ":  @function -> " + std::string( func ) + " @line ->" + std::to_string( ln );
-//     std::string errmsg = std::string( "[ SYNTAX-ERROR ]: " ) + errstr + " : [ issue ]: @ln -> [" +  std::to_string( line ) + "] "  + toString( token ) +" -> " + msg;
-//     _error = errmsg;
-// }
+enum
+{
+    SYNTAX_ERROR_UNDEFINED_IDENTIFIER,
+    SYNTAX_ERROR_UNKNOWN_NODE_TYPE,
+    SYNTAX_ERROR_UNKNOWN_DATA_TYPE,
+};
+void throwSyntaxError( int error_code, int line, const char* msg, const char* funct )
+{
+    std::string errmsg;
+    errmsg += std::string( funct ) + "()";
+    switch ( error_code )
+    {
+        case SYNTAX_ERROR_UNDEFINED_IDENTIFIER:
+        {
+            errmsg += std::string( ": UNDEFINED_IDENTIFIER -> " ) + msg;
+            errmsg += std::string( ": at line# " ) + std::to_string( line );
+        }
+        break;
+
+        case SYNTAX_ERROR_UNKNOWN_DATA_TYPE:
+        {
+            errmsg += std::string( ": UNKNOWN_DATA_TYPE -> " ) + msg;
+            errmsg += std::string( ": at line# " ) + std::to_string( line );
+        }
+        break;
+
+        case SYNTAX_ERROR_UNKNOWN_NODE_TYPE:
+        {
+            errmsg += std::string( " does not yet support NODE_TYPE -> " ) + msg;
+            errmsg += std::string( ": line# " ) + std::to_string( line ) + " in script file";
+        }
+        break;
+
+        default:
+        break;
+    }
+    throw std::runtime_error( errmsg );
+}
+#define THROW_SYNTAX_ERROR( code, line, msg ) throwSyntaxError( code, line, msg, __FUNCTION__ )
 
 
+Tree analyzeScopeBlock( Tree& node );
 Tree analyzeOperation( Tree& operand );
 Tree getIdentifier( Tree& declaration );
 Tree analyzeFunction( Tree& function );
@@ -18,6 +49,78 @@ Tree analyzeHost( Tree& function );
 Tree analyzeNode( Tree& node );
 Tree getValue( Tree& node );
 
+Tree analyzeIf( Tree& node )
+{
+    Tree loop = new Tree::Node( Lexer::_IF );
+    loop->push( analyzeOperation( node[ 0 ][ 0 ] ) );
+    loop->push( analyzeNode( node[ 1 ] ) );
+    return loop;
+}
+
+Tree analyzeElse( Tree& node )
+{
+    Tree stmt;
+    if ( node[ 0 ]->node_type == Lexer::_IF )
+    {
+        stmt = analyzeIf( node[ 0 ] );
+        stmt->node_type = Lexer::_ELSE_IF;
+    }
+    else
+    {
+        stmt = new Tree::Node( Lexer::_ELSE );
+        stmt->push( analyzeNode( node[ 0 ] ) );
+    }
+    return stmt;
+}
+
+Tree analyzeForLoopCondition( Tree& node )
+{
+    Tree conditions = new Tree::Node( Lexer::_CONDITIONS );
+
+    Tree params = new Tree::Node(0, Lexer::_PARAMETERS);
+    for(int k = 0; k < node[ 0 ].size(); k++)
+    {
+        params->push( analyzeNode( node[ 0 ][ k ] ) );
+    }
+    conditions->push( params );
+
+    for(int i = 1; i < node.size(); i++)
+    {
+        params = new Tree::Node(0, Lexer::_PARAMETERS);
+        for(int k = 0; k < node[ i ].size(); k++)
+        {
+            params->push( analyzeOperation( node[ i ][ k ] ) );
+        }
+        conditions->push( params );
+    }
+    return conditions;
+}
+
+Tree analyzeForLoop( Tree& node )
+{
+    Tree loop = new Tree::Node( Lexer::_FOR );
+    loop->push( analyzeForLoopCondition( node[ 0 ] ) );
+    loop->push( analyzeNode( node[ 1 ] ) );
+    return loop;
+}
+
+Tree analyzeWhileLoop( Tree& node )
+{
+    Tree loop = new Tree::Node( Lexer::_WHILE );
+    loop->push( analyzeOperation( node[ 0 ] ) );
+    loop->push( analyzeNode( node[ 1 ] ) );
+    return loop;
+}
+
+Tree analyzeScopeBlock( Tree& node )
+{
+    Tree block = new Tree::Node(0, Lexer::_SCOPE_BLOCK);
+    for( uint32_t i = 0; i < node.size(); i++ )
+    {
+        block->push( analyzeNode( node[ i ] ) );
+    }
+    return block;
+}
 
 Tree analyzeParameter( Tree& node )
 {
@@ -39,7 +142,8 @@ Tree analyzeParameter( Tree& node )
 
         case Lexer::_ASSIGN:
         {
-            var = analyzeOperation( node->nodes[ 1 ] );
+            var = new Tree::Node( Lexer::_VAR, node->nodes[ 0 ]->id );
+            var->push( analyzeOperation( node->nodes[ 1 ] ) );
         }
         break;
 
@@ -52,19 +156,23 @@ Tree analyzeParameter( Tree& node )
 
         case Lexer::_CONST:
         {
-            Tree& node = node->nodes[ 0 ];
-            var = analyzeParameter( node );
+            var = analyzeParameter( node->nodes[ 0 ] );
         }
         break;
 
         default:
         {
-            throw std::runtime_error( __FUNCTION__ );
+            THROW_SYNTAX_ERROR
+            ( 
+                SYNTAX_ERROR_UNKNOWN_NODE_TYPE, 
+                node->line, Lexer::toString( node->node_type ) 
+            );
         }
         break;
     }
     return var;
 }
+
 Tree analyzeParameters( Tree& node )
 {
     Tree parameters = new Tree::Node( node->line, Lexer::_ENCLOSE_PARENTHESIS );
@@ -75,46 +183,12 @@ Tree analyzeParameters( Tree& node )
     return parameters;
 }
 
-Tree analyzeScopeBlock( uint32_t scope, Tree& scope_block )
-{
-    Tree block = new Tree::Node(0, Lexer::_SCOPE_BLOCK);
-    for( uint32_t i = 0; i < scope_block->nodes.size(); i++ )
-    {
-        Tree& stmt = scope_block->nodes[ i ];
-        switch( stmt->node_type )
-        {
-            default:
-            {
-                throw std::runtime_error( __FUNCTION__ );
-            }
-            break;
-
-            case Lexer::_IDENTIFIER:
-            case Lexer::_DECLARATION:
-            case Lexer::_ASSIGN:
-            case Lexer::_CONST:
-            break;
-
-            case Lexer::_WHILE:
-            {
-            }
-            break;
-
-            case Lexer::_FOR:
-            {
-            }
-            break;
-        }
-    }
-    return block;
-}
-
 Tree analyzeFunction( Tree& function )
 {
     Tree function_definition = new Tree::Node();
     function_definition->node_type = Lexer::_FUNCTION; 
     function_definition->push( analyzeParameters( function->nodes[ 0 ] ) );
-    function_definition->push( analyzeScopeBlock( 0, function->nodes[ 1 ] ) );
+    function_definition->push( analyzeScopeBlock( function->nodes[ 1 ] ) );
     return function_definition;
 }
 
@@ -142,64 +216,63 @@ Tree getIdentifier( Tree& node )
     return var;
 }
 
-/** 
- * @fn getValue 
- * @param flags are bit flags to set constrains on the value {CONST, ADDRESS, STATIC_VARIABLE}.
- * @param node The varible node to decode. 7, int(7), float( 3 + n ), etc
- * @return Tree node containing the node data and type
- */
-Tree getValue( Tree& node )
+
+Tree newValue( Lexer::Token node_type, Tree node )
 {
     Tree var = new Tree::Node();
+    var->node_type = node_type;
     var->id = node->id;
-    
+    if( !node->nodes.empty() )
+    {
+        var->push( analyzeOperation( node->nodes[ 0 ] ) );
+    }
+    return var;
+}
+
+Tree getValue( Tree& node )
+{
+    Tree var;
     switch( node->node_type )
     {
         case Lexer::_VAR_BOOL:
         case Lexer::_BOOL:
         { 
-            var->node_type = Lexer::_BOOL;
+            var = newValue( Lexer::_BOOL, node );
         }
         break;
 
         case Lexer::_VAR_INT:
         case Lexer::_INT:
         { 
-            var->node_type = Lexer::_INT;
+            var = newValue( Lexer::_INT, node );
         }
         break;
 
         case Lexer::_VAR_LONG:
         case Lexer::_LONG:
         { 
-            var->node_type = Lexer::_LONG;
+            var = newValue( Lexer::_LONG, node );
         }
         break;
 
         case Lexer::_VAR_FLOAT:
         case Lexer::_FLOAT:
         { 
-            var->node_type = Lexer::_FLOAT;
+            var = newValue( Lexer::_FLOAT, node );
         }
         break;
 
         case Lexer::_VAR_DOUBLE:
         case Lexer::_DOUBLE:
         { 
-            var->node_type = Lexer::_DOUBLE;
+            var = newValue( Lexer::_DOUBLE, node );
         }
         break;
 
         case Lexer::_VAR_STRING:
         case Lexer::_STRING:
         { 
-            var->node_type = Lexer::_STRING;
-        }
-        break;
-
-        case Lexer::_ARRAY:
-        { 
-            var->node_type = Lexer::_ARRAY;
+            var = newValue( Lexer::_STRING, node );
         }
         break;
 
@@ -212,6 +285,12 @@ Tree getValue( Tree& node )
         case Lexer::_HOST:
         {   
             var = analyzeHost( node );
+        }
+        break;
+
+        case Lexer::_ARRAY:
+        { 
+            var = node;
         }
         break;
 
@@ -264,7 +343,11 @@ Tree getValue( Tree& node )
 
                 default:
                 {
-                    throw std::runtime_error( __FUNCTION__ );
+                    THROW_SYNTAX_ERROR
+                    ( 
+                        SYNTAX_ERROR_UNKNOWN_DATA_TYPE, 
+                        node->line, Lexer::toString( var->node_type ) 
+                    );
                 }
                 break;
             }
@@ -273,14 +356,13 @@ Tree getValue( Tree& node )
 
         default:
         {
-            throw std::runtime_error( __FUNCTION__ );
+            THROW_SYNTAX_ERROR
+            ( 
+                SYNTAX_ERROR_UNKNOWN_NODE_TYPE, 
+                node->line, Lexer::toString( node->node_type ) 
+            );
         }
         break;
-    }
-
-    if( !node->nodes.empty() && node->node_type != Lexer::_CONST )
-    {
-        var->push( analyzeOperation( node->nodes[ 0 ] ) );
     }
     return var;
 }
@@ -292,10 +374,11 @@ Tree analyzeOperation( Tree& operand )
     {
         default:
         {   
-            std::string msg = __FUNCTION__;
-            msg += + " line#: " + std::to_string( operand->line );
-            msg += " : invalid operation '"+ operand->id +"'";
-            throw std::runtime_error( msg );
+            THROW_SYNTAX_ERROR
+            ( 
+                SYNTAX_ERROR_UNKNOWN_NODE_TYPE, 
+                operand->line, Lexer::toString( operand->node_type ) 
+            );
         }
         break;
 
@@ -305,165 +388,53 @@ Tree analyzeOperation( Tree& operand )
         }
         break;
 
+        case Lexer::_ARRAY_INDEXED:
+        {   
+            op = new Tree::Node( Lexer::_VAR, operand->id );
+            op->push( new Tree::Node( Lexer::_ARRAY_INDEXED, operand->nodes[ 0 ]->id ) );
+        }
+        break;
+
         case Lexer::_ADD:
-        {   
-            op = new Tree::Node( Lexer::_ADD );
-            op->push( analyzeOperation( operand->nodes[ 0 ] ) );
-            op->push( analyzeOperation( operand->nodes[ 1 ] ) );
-        }
-        break;
-
         case Lexer::_SUB:
-        {   
-            op = new Tree::Node( Lexer::_SUB );
-            op->push( analyzeOperation( operand->nodes[ 0 ] ) );
-            op->push( analyzeOperation( operand->nodes[ 1 ] ) );
-        }
-        break;
-
         case Lexer::_DIV:
-        {   
-            op = new Tree::Node( Lexer::_DIV );
-            op->push( analyzeOperation( operand->nodes[ 0 ] ) );
-            op->push( analyzeOperation( operand->nodes[ 1 ] ) );
-        }
-        break;
-
         case Lexer::_MUL:
-        {   
-            op = new Tree::Node( Lexer::_MUL );
-            op->push( analyzeOperation( operand->nodes[ 0 ] ) );
-            op->push( analyzeOperation( operand->nodes[ 1 ] ) );
-        }
-        break;
-
         case Lexer::_MOD:
-        {   
-            op = new Tree::Node( Lexer::_MOD );
-            op->push( analyzeOperation( operand->nodes[ 0 ] ) );
-            op->push( analyzeOperation( operand->nodes[ 1 ] ) );
-        }
-        break;
-
-        case Lexer::_AND:
-        {   
-            op = new Tree::Node( Lexer::_AND );
-            op->push( analyzeOperation( operand->nodes[ 0 ] ) );
-            op->push( analyzeOperation( operand->nodes[ 1 ] ) );
-        }
-        break;
-
         case Lexer::_OR:
+        case Lexer::_OR_EQUAL:
+        case Lexer::_AND:
+        case Lexer::_AND_EQUAL:
+        case Lexer::_LESS:
+        case Lexer::_LESS_EQUAL:
+        case Lexer::_GREATER:
+        case Lexer::_GREATER_EQUAL:
+        case Lexer::_EQUAL_EQUAL:
         {   
-            op = new Tree::Node( Lexer::_AND );
+            op = new Tree::Node( operand->node_type );
             op->push( analyzeOperation( operand->nodes[ 0 ] ) );
             op->push( analyzeOperation( operand->nodes[ 1 ] ) );
         }
         break;
 
         case Lexer::_INCREMENT:
-        {   
-            op = new Tree::Node( Lexer::_INCREMENT );
-            op->id = operand->nodes[ 0 ]->id;
-        }
-        break;
-
         case Lexer::_DECREMENT:
-        {   
-            op = new Tree::Node( Lexer::_DECREMENT );
-            op->id = operand->nodes[ 0 ]->id;
-        }
-        break;
-
         case Lexer::_NOT:
-        {   
-            op = new Tree::Node( Lexer::_NOT );
-            op->id = operand->nodes[ 0 ]->id;
-        }
-        break;
-
         case Lexer::_INVERT:
         {   
-            op = new Tree::Node( Lexer::_INVERT );
+            op = new Tree::Node( operand->node_type );
             op->id = operand->nodes[ 0 ]->id;
         }
         break;
 
         case Lexer::_ADD_EQUAL:
-        {   
-            Tree n = new Tree::Node( Lexer::_ADD );
-            n->push( getIdentifier( operand->nodes[ 0 ] ) );
-            n->push( analyzeOperation( operand->nodes[ 1 ] ) );
-
-            op = new Tree::Node( Lexer::_ASSIGN );
-            op->push( n->nodes[ 0 ] );
-            op->push( n );
-        }
-        break;
-
         case Lexer::_SUB_EQUAL:
-        {   
-            Tree n = new Tree::Node( Lexer::_SUB );
-            n->push( getIdentifier( operand->nodes[ 0 ] ) );
-            n->push( analyzeOperation( operand->nodes[ 1 ] ) );
-
-            op = new Tree::Node( Lexer::_ASSIGN );
-            op->push( n->nodes[ 0 ] );
-            op->push( n );
-        }
-        break;
-
         case Lexer::_MUL_EQUAL:
-        {   
-            Tree n = new Tree::Node( Lexer::_MUL );
-            n->push( getIdentifier( operand->nodes[ 0 ] ) );
-            n->push( analyzeOperation( operand->nodes[ 1 ] ) );
-
-            op = new Tree::Node( Lexer::_ASSIGN );
-            op->push( n->nodes[ 0 ] );
-            op->push( n );
-        }
-        break;
-
         case Lexer::_DIV_EQUAL:
-        {   
-            Tree n = new Tree::Node( Lexer::_DIV );
-            n->push( getIdentifier( operand->nodes[ 0 ] ) );
-            n->push( analyzeOperation( operand->nodes[ 1 ] ) );
-
-            op = new Tree::Node( Lexer::_ASSIGN );
-            op->push( n->nodes[ 0 ] );
-            op->push( n );
-        }
-        break;
-
         case Lexer::_MOD_EQUAL:
-        {   
-            Tree n = new Tree::Node( Lexer::_MOD );
-            n->push( getIdentifier( operand->nodes[ 0 ] ) );
-            n->push( analyzeOperation( operand->nodes[ 1 ] ) );
-
-            op = new Tree::Node( Lexer::_ASSIGN );
-            op->push( n->nodes[ 0 ] );
-            op->push( n );
-        }
-        break;
-
+        case Lexer::_EXP_EQUAL:
         case Lexer::_INVERT_EQUAL:
         {   
-            Tree n = new Tree::Node( Lexer::_INVERT );
-            n->push( getIdentifier( operand->nodes[ 0 ] ) );
-            n->push( analyzeOperation( operand->nodes[ 1 ] ) );
-
-            op = new Tree::Node( Lexer::_ASSIGN );
-            op->push( n->nodes[ 0 ] );
-            op->push( n );
-        }
-        break;
-
-        case Lexer::_EXP_EQUAL:
-        {   
-            Tree n = new Tree::Node( Lexer::_EXP );
+            Tree n = new Tree::Node( operand->node_type );
             n->push( getIdentifier( operand->nodes[ 0 ] ) );
             n->push( analyzeOperation( operand->nodes[ 1 ] ) );
 
@@ -480,6 +451,16 @@ Tree analyzeOperation( Tree& operand )
         }
         break;
 
+        case Lexer::_FUNCTION_CALL:
+        {   
+            op = new Tree::Node( Lexer::_FUNCTION_CALL );
+            for (size_t i = 0; i < operand.size(); i++)
+            {
+                op->push( analyzeOperation( operand[ i ] ) );
+            }
+        }
+        break;
+
         case Lexer::_INT:
         case Lexer::_BOOL:
         case Lexer::_LONG:
@@ -493,7 +474,8 @@ Tree analyzeOperation( Tree& operand )
         case Lexer::_VAR_FLOAT:
         case Lexer::_VAR_DOUBLE:
         case Lexer::_VAR_STRING:
-        case Lexer::_FUNCTION_CALL:
+        case Lexer::_FUNCTION:
+        case Lexer::_ARRAY:
         {   
             op = getValue( operand );
         }
@@ -522,7 +504,8 @@ Tree analyzeNode( Tree& node )
 
         case Lexer::_ASSIGN:
         {   
-            var = new Tree::Node( Lexer::_VAR, node->nodes[ 0 ]->id );
+            var = new Tree::Node( Lexer::_ASSIGN );
+            var->push( new Tree::Node( Lexer::_VAR, node->nodes[ 0 ]->id ) );
             var->push( analyzeOperation( node->nodes[ 1 ] ) );
         }
         break;
@@ -538,9 +521,9 @@ Tree analyzeNode( Tree& node )
                 }
                 break;
 
-                case Lexer::_VAR:
+                case Lexer::_ASSIGN:
                 {   
-                    var->node_type = Lexer::_CONST_VAR;
+                    var->nodes[ 0 ]->node_type = Lexer::_CONST_VAR;
                 }
                 break;
 
@@ -552,16 +535,79 @@ Tree analyzeNode( Tree& node )
 
                 default:
                 {
-                    throw std::runtime_error( __FUNCTION__ );
+                    THROW_SYNTAX_ERROR
+                    ( 
+                        SYNTAX_ERROR_UNKNOWN_NODE_TYPE, 
+                        var->line, Lexer::toString( var->node_type ) 
+                    );
                 }
                 break;
             }
         }
         break;
 
-        default:
+        case Lexer::_FUNCTION_CALL:
+        {   
+            var = analyzeOperation( node );
+        }
+        break;
+
+        case Lexer::_SCOPE_BLOCK:
         {
-            throw std::runtime_error( __FUNCTION__ );
+            var = analyzeScopeBlock( node );
+        }
+        break;
+
+        case Lexer::_WHILE:
+        {
+            var = analyzeWhileLoop( node );
+        }
+        break;
+
+        case Lexer::_FOR:
+        {
+            var = analyzeForLoop( node );
+        }
+        break;
+
+        case Lexer::_IF:
+        {
+            var = analyzeIf( node );
+        }
+        break;
+
+        case Lexer::_ELSE:
+        {
+            var = analyzeElse( node );
+        }
+        break;
+
+        case Lexer::_CONTINUE:
+        case Lexer::_BREAK:
+        {
+            var = node;
+        }
+        break;
+
+        case Lexer::_ADD_EQUAL:
+        case Lexer::_SUB_EQUAL:
+        case Lexer::_MUL_EQUAL:
+        case Lexer::_DIV_EQUAL:
+        case Lexer::_MOD_EQUAL:
+        case Lexer::_EXP_EQUAL:
+        case Lexer::_INVERT_EQUAL:
+        {   
+            var = analyzeOperation( node );
+        }
+        break;
+
+        default:
+        { 
+            THROW_SYNTAX_ERROR
+            ( 
+                SYNTAX_ERROR_UNKNOWN_NODE_TYPE, 
+                node->line, Lexer::toString( node->node_type ) 
+            );
         }
         break;
     }

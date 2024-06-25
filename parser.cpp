@@ -426,16 +426,8 @@ Tree parseElseStatement( Lexer* lexer, Lexer::Token& token )
 
     if ( token == Lexer::_IF )
     {
-        Tree iff = new Tree::Node( lexer->getCurrLine(), Lexer::_IF );
         token = lexer->getNextToken();
-
-        Tree conditions = new Tree::Node( lexer->getCurrLine(), Lexer::_CONDITIONS );
-        conditions->push( parseExpression( lexer, token ) );
-        iff->push( conditions );
-
-        iff->push( getBodyStmt( lexer, token ) );
-
-        els->push( iff );
+        els->push( parseIfStatement( lexer,  token ) );
     }
     else 
     {

@@ -9,6 +9,7 @@ public:
 
     class Node{
     public:
+
         bool empty()const{ return nodes.empty(); }
         void push( Tree n )
         {
@@ -66,6 +67,9 @@ public:
     };
 
 public:
+
+    Tree& operator[]( uint i ){ return node->nodes[ i ]; }
+    uint64_t size(){ return node->nodes.size(); }
 
     Tree& operator =( const Tree& n );
     Node* operator ->();

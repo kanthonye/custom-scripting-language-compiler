@@ -1,7 +1,37 @@
-add : function () 
-{
-}
 
-const add : function () 
+const main : function()
 {
+    file = open( "somefile/somewhere/image.jpu" );
+    size = sizeof( file );
+    data = []( size );
+    fread( data, size, file );
+    close( file );
+
+    print( data );
+    token: "";
+
+    if( n == p )
+    {
+        n = k;
+    }
+    else if( n == k )
+    {
+        n = p;
+    }
+    else
+    { 
+        n = u;
+    }
+
+    for( i=0; i<size; i++)
+    {
+        k = data[i];
+        if( k == " " )
+        {
+            break;
+        }
+        token += k;
+    }
+
+    print( token );
 }
