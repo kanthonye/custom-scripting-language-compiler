@@ -1,5 +1,46 @@
 #include "semantic.hpp"
 
+
+enum
+{
+    GLOBAL_SCOPE = 1,
+    SYNTAX_ERROR,
+    SYNTAX_OK,
+};
+
+enum
+{
+    NONE = 0,
+    CONST,
+    ADDRESS,
+};
+
+
+
+class SymbolsTable{
+public:
+
+    struct Info 
+    {
+        Tree tree;
+        int scope;
+        int index;
+    };
+
+// public:
+
+    bool insert( int scope, Tree& node );
+    int lookup( int scope, const std::string& id );
+    Tree& get( int index );
+//     Symbols();
+
+// private:
+
+//     std::map< std::string, std::vector< Info > > table;
+//     std::vector< Tree > stmts;
+//     int refcount;
+};
+
 // bool Symbols::insert( int scope, const std::string& id, Syntax::Ref& node )
 // {
 //     int index = int( stmts.size() );
@@ -779,152 +820,110 @@
 //     return true;
 // }
 
-// bool analyzeNode( Semantic* semantic, std::string& errmsg, int flags, int scope, Syntax::Ref& n )
-// {
-//     if ( !errmsg.empty() ) return false;
-//     switch ( n->node_type )
-//     {
-//         // case Lexer::_FUNCTION_CALL:
-//         // {
-//         //     return analyzeFunctCall( scope,n );
-//         // }
-//         // break;
+bool isCompatible( Tree& param, Tree& node )
+{
+    switch ( param->type )
+    {
+        case Lexer::_ASSIGN:
+        {
+            switch( param[ 1 ]->type )
+            {
+                case Lexer::_DOUBLE:
+                case Lexer::_FLOAT:
+                case Lexer::_LONG:
+                case Lexer::_INT:
+                {
+                }
+                break;
 
-//         case Lexer::_CONST: 
-//         {
-//             return analyzeConst( semantic, errmsg, NONE, scope, n );
-//         }
-//         break;
+                case Lexer::_STRING:
+                {
+                }
+                break;
 
-//         case Lexer::_DECLARATION: 
-//         {
-//             return analyzeDeclaration( semantic, errmsg, NONE, scope, n );
-//         }
-//         break;
+                case Lexer::_BOOL:
+                {
+                }
+                break;
 
-//         case Lexer::_ASSIGN:
-//         {
-//             return analyzeAssign( semantic, errmsg, NONE, scope,n );
-//         }
-//         break;
+                case Lexer::_FUNCTION:
+                {
+                }
+                break;
 
-//         // case Lexer::_IDENTIFIER:
-//         // {
-//         //     symbols.insert( scope, n->id, n );
-//         // }
-//         // break;
+                default:
+                break;
+            }
+        }
+        break;
 
-//         // case Lexer::_RETURN:
-//         // {
-//         //     return analyzeReturn( scope,n );
-//         // }
-//         // break;
+        default:
+        break;
+    }
+    return true;
+}
 
-//         // case Lexer::_BREAK:
-//         // {
-//         //     return analyzeBreak( scope,n );
-//         // }
-//         // break;
+void analyzeFunctionNode( SymbolsTable* symbols, Tree& tree, int& scope )
+{
 
-//         // case Lexer::_CONTINUE:
-//         // {
-//         //     return analyzeContinue( scope, n );
-//         // }
-//         // break;
+}
 
-//         // case Lexer::_IF:
-//         // {
-//         //     return analyzeIf( scope, n );
-//         // }
-//         // break;
+void analyzeAssignNode( SymbolsTable* symbols, Tree& tree, int& scope )
+{
+    switch ( tree[ 1 ]->type )
+    {
+        case Lexer::_FUNCTION:
+        {
+            if ( symbols->lookup( scope, tree[ 0 ]->id ) < 0 )
+            {
+                scope++;
+                symbols->insert( scope, tree );
+                analyzeFunctionNode( symbols, tree[ 1 ], scope );
+            }
+            else 
+            {
+                //THROW_SEMANTIC_ERROR( SEMANTIC_ERROR_DUPLICATE, tree[ 0 ]->line, tree->id, );
+            }
+        }
+        break;
 
-//         // case Lexer::_FOR:
-//         // {
-//         //     return analyzeFor( scope, n );
-//         // }
-//         // break;
+        case Lexer::_FUNCTION_CALL:
+        {
+            int index = symbols->lookup( scope, tree->id );
+            if ( index >= 0 )
+            {
+                Tree& function = symbols->get( index );
+                Tree& funccall = tree;
+                
+                Tree& parameters = function[ 0 ];
+                if ( funccall.size() != parameters.size() )
+                {
+                    // for (size_t i = 0; i < parameters.size(); i++)
+                    // {
+                    //     Tree& param = parameters[ i ];
+                    //     if ( !isCompatible( param, funccall[ i ] ) )
+                    //     {
+                    //         //THROW_SEMANTIC_ERROR( SEMANTIC_ERROR_NONE_COMPATIBLE_PARAM, tree->line, tree->id, );
+                    //     }
+                    // }
+                    // THROW_SEMANTIC_ERROR( SEMANTIC_ERROR_FUNC_PARAM_SIZE, tree->line, tree->id, );
+                }
+            }
+            else 
+            {
+                //THROW_SEMANTIC_ERROR( SEMANTIC_ERROR_UNDEFINE_FUNCTION, tree->line, tree->id, );
+            }
+        }
+        break;
+    }
+}
 
-//         // case Lexer::_WHILE:
-//         // {
-//         //     return analyzeWhile( scope,n );
-//         // }
-//         // break;
+bool Semantic::analyze( Syntax* syntax )
+{
+    Tree& tree = syntax->getTree();
 
-//         // case Lexer::_SWITCH:
-//         // {
-//         //     return analyzeSwitch( scope, n );
-//         // }
-//         // break;
-
-//         // case Lexer::_ENCLOSE_CURLY_BRACKET:
-//         // {
-//         //     return analyzeSwitch( scope, n );
-//         // }
-//         // break;
-
-//         // case Lexer::_ADD_EQUAL:
-//         // case Lexer::_SUB_EQUAL:
-//         // case Lexer::_MUL_EQUAL:
-//         // case Lexer::_DIV_EQUAL:
-//         // case Lexer::_MOD_EQUAL:
-//         // case Lexer::_EXP_EQUAL:
-//         // {
-//         //     Syntax::Ref& l = n->nodes[ 0 ];
-//         //     Syntax::Ref& r = n->nodes[ 1 ];
-//         //     if ( !validate( scope, symbols, l ) )
-//         //     {
-//         //         return false;
-//         //     }
-//         //     if ( !validate( scope, symbols, r ) )
-//         //     {
-//         //         return false;
-//         //     }
-//         // }
-//         // break;
-
-//         // case Lexer::_ADD:
-//         // case Lexer::_SUB:
-//         // case Lexer::_MUL:
-//         // case Lexer::_DIV:
-//         // case Lexer::_MOD:
-//         // case Lexer::_EXP:
-//         // {
-//         //     Syntax::Ref& l = n->nodes[ 0 ];
-//         //     Syntax::Ref& r = n->nodes[ 1 ];
-//         //     if ( !validate( scope, symbols, l ) )
-//         //     {
-//         //         errmsg = SEMANTIC_ERROR( std::string("error -> '"+ l->id + "' @line: " + std::to_string( n->line )) );
-//         //         return false;
-//         //     }
-//         //     if ( !validate( scope, symbols, r ) )
-//         //     {
-//         //         errmsg = SEMANTIC_ERROR( std::string("error -> '"+ l->id + "' @line: " + std::to_string( n->line )) );
-//         //         return false;
-//         //     }
-//         // }
-//         // break;
-
-//         default:
-//         {
-//             return false;
-//         }
-//         break;
-//     }
-//     return true;
-// }
-
-// bool Semantic::analyze( Syntax::Tree* node )
-// {
-//     for ( int i = 0; i < node->nodes.size(); i++ )
-//     {
-//         if ( !analyzeNode( GLOBAL_SCOPE, node->nodes[ i ] ) )
-//         {
-//             std::cout <<"[ SEMANTIC-ERROR ]: "<< errmsg <<"\n";
-//             return false;
-//         }
-//     }
-//     return true;
-// }
+    return true;
+}
 
 // bool Semantic::load( const char* filename )
 // {
@@ -948,106 +947,7 @@
 //     return ++_scope_counter;
 // }
 
-Semantic::Semantic()
-:   _scope_counter( 0 )
-{}
-
-bool isNumeric(const char* str)
-{
-    enum{ NUM_INT = 1, NUM_FLOAT, NUM_FLOAT_E, NOT_NUM };
-    int tok = 0;
-    bool isnum = false;
-
-    while ( *str != 0 && tok != NOT_NUM )
-    {
-        switch ( *str )
-        {
-            case 0: 
-            {
-                if ( *str >= '0' && *str <= '9' )
-                {
-                    tok = NUM_INT;
-                    isnum = true;
-                }
-                else if ( *str >= '-' && *str <= '+' )
-                {
-                    tok = NUM_INT;
-                    isnum = true;
-                }
-                else if ( *str >= '.' )
-                {
-                    tok = NUM_FLOAT;
-                    isnum = true;
-                }
-                else
-                {
-                    tok = NOT_NUM;
-                    isnum = false;
-                }
-            }
-            break;
-
-            case NUM_INT:
-            {
-                if ( *str >= '0' && *str <= '9' )
-                {
-                    break;
-                }
-                else if ( *str == '.' )
-                {
-                    tok = NUM_FLOAT;
-                }
-                else
-                {
-                    tok = NOT_NUM;
-                    isnum = false;
-                }
-            }
-            break;
-
-            case NUM_FLOAT:
-            {
-                if ( *str >= '0' && *str <= '9' )
-                {
-                    break;
-                }
-                else if ( *str == 'e' || *str == 'E' )
-                {
-                    if ( str[ 1 ] == '-' || str[ 1 ] == '+' )
-                    {
-                        str += 2;
-                    }
-                    tok = NUM_FLOAT_E;
-                }
-                else
-                {
-                    tok = NOT_NUM;
-                    isnum = false;
-                }
-            }
-            break;
-
-            case NUM_FLOAT_E:
-            {
-                if ( *str >= '0' && *str <= '9' )
-                {
-                    break;
-                }
-                else
-                {
-                    tok = NOT_NUM;
-                    isnum = false;
-                }
-            }
-            break;
-        
-            default:
-            {
-                str++;
-            }
-            break;
-        }
-    }
-    return isnum;
-}
+// Semantic::Semantic()
+// :   _scope_counter( 0 )
+// {}
 

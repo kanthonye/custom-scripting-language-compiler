@@ -10,9 +10,9 @@
                 "${file}",
                 "${workspaceFolder}/tree.cpp",
                 "${workspaceFolder}/lexer.cpp",
-                "${workspaceFolder}/parser.cpp",
                 "${workspaceFolder}/syntax.cpp",
                 "${workspaceFolder}/semantic.cpp",
+                "${workspaceFolder}/symbol-table.cpp",
                 "${workspaceFolder}/lexer-preprocessor.cpp",
                 "-o",
                 "${fileDirname}/${fileBasenameNoExtension}"

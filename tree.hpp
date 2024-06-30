@@ -24,21 +24,21 @@ public:
 
         Node( int ln, Lexer::Token type, const std::string& id )
         :   id( id )
-        ,   node_type( type )
+        ,   type( type )
         ,   flags( 0 )
         ,   refcount( 0 )
         ,   line( ln )
         {}
 
         Node( int ln, Lexer::Token type )
-        :   node_type( type )
+        :   type( type )
         ,   flags( 0 )
         ,   refcount( 0 )
         ,   line( ln )
         {}
 
         Node( Lexer::Token type, const std::string& id )
-        :   node_type( type )
+        :   type( type )
         ,   flags( 0 )
         ,   refcount( 0 )
         ,   line( 0 )
@@ -46,7 +46,7 @@ public:
         {}
 
         Node( Lexer::Token type )
-        :   node_type( type )
+        :   type( type )
         ,   flags( 0 )
         ,   refcount( 0 )
         ,   line( 0 )
@@ -56,7 +56,7 @@ public:
 
         std::vector< Tree > nodes;
         std::string  id;
-        Lexer::Token node_type;
+        Lexer::Token type;
         int flags;   // this property is set by the syntax analyzer
         int line;    // this property is set by the lexical analyzer, it holds the code line number
 

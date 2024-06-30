@@ -1,591 +1,824 @@
 #include "syntax.hpp"
 
+
+Tree analyzeExpression( Lexer* lexer, Lexer::Token& token );
+Tree analyzeIfStatement( Lexer* lexer, Lexer::Token& token );
+Tree analyzeForLoop( Lexer* lexer, Lexer::Token& token );
+Tree analyzeScopeBlock( Lexer* lexer, Lexer::Token& token );
+Tree analyzeFunction( Lexer* lexer, Lexer::Token& token );
+Tree analyzeDataType( Lexer* lexer, Lexer::Token& token );
+Tree analyzeIdentifier( Lexer* lexer, Lexer::Token& token );
+Tree analyzeConstant( Lexer* lexer, Lexer::Token& token );
+
 enum
 {
-    SYNTAX_ERROR_UNDEFINED_IDENTIFIER,
-    SYNTAX_ERROR_UNKNOWN_NODE_TYPE,
-    SYNTAX_ERROR_UNKNOWN_DATA_TYPE,
+    EXPECTED_TOKEN,
+    MISSING_TOKEN,
+    UNEXPECTED_TOKEN,
+    UNSUPPORTED_TYPE,
+    EMPTY_ARRAY_OBJECT,
+    UNDETERMIND_STATIC_TYPE,
+    UNSUPPORTED_FUNCTION_PARAMETER,
 };
-void throwSyntaxError( int error_code, int line, const char* msg, const char* funct )
+void throwPaserError( int error_code, int line, Lexer::Token token, const char* funct )
 {
-    std::string errmsg;
-    errmsg += std::string( funct ) + "()";
+    std::string msg;
     switch ( error_code )
     {
-        case SYNTAX_ERROR_UNDEFINED_IDENTIFIER:
+        case UNEXPECTED_TOKEN:
         {
-            errmsg += std::string( ": UNDEFINED_IDENTIFIER -> " ) + msg;
-            errmsg += std::string( ": at line# " ) + std::to_string( line );
+            msg += "error in " + std::string( funct );
+            msg += std::string( ": UNEXPECTED_TOKEN -> " ) + Lexer::toString( token );
+            msg += std::string( ": at line# " ) + std::to_string( line );
         }
         break;
 
-        case SYNTAX_ERROR_UNKNOWN_DATA_TYPE:
+        case MISSING_TOKEN:
         {
-            errmsg += std::string( ": UNKNOWN_DATA_TYPE -> " ) + msg;
-            errmsg += std::string( ": at line# " ) + std::to_string( line );
+            msg += "error in " + std::string( funct );
+            msg += std::string( ": MISSING_TOKEN -> " ) + Lexer::toString( token );
+            msg += std::string( ": at line# " ) + std::to_string( line );
         }
         break;
 
-        case SYNTAX_ERROR_UNKNOWN_NODE_TYPE:
+        case EXPECTED_TOKEN:
         {
-            errmsg += std::string( " does not yet support NODE_TYPE -> " ) + msg;
-            errmsg += std::string( ": line# " ) + std::to_string( line ) + " in script file";
+            msg += "error in " + std::string( funct );
+            msg += std::string( ": EXPECTED_TOKEN -> " ) + Lexer::toString( token );
+            msg += std::string( ": at line# " ) + std::to_string( line );
+        }
+        break;
+
+        case UNSUPPORTED_TYPE:
+        {
+            msg += "error in " + std::string( funct );
+            msg += std::string( ": UNSUPPORTED_TYPE -> " ) + Lexer::toString( token );
+            msg += std::string( ": at line# " ) + std::to_string( line );
+        }
+        break;
+
+        case EMPTY_ARRAY_OBJECT:
+        {
+            msg += "error detected by " + std::string( funct );
+            msg += ": EMPTY_ARRAY_OBJECT -> " + std::string( ": at line# " ) + std::to_string( line );
+        }
+        break;
+
+        case UNDETERMIND_STATIC_TYPE:
+        {
+            msg += "error detected by " + std::string( funct );
+            msg += ": UNDETERMIND_STATIC_TYPE -> " + std::string( ": at line# " ) + std::to_string( line );
+        }
+        break;
+
+        case UNSUPPORTED_FUNCTION_PARAMETER:
+        {
+            msg += "error detected by " + std::string( funct );
+            msg += ": UNSUPPORTED_FUNCTION_PARAMETER -> " + std::string( ": at line# " ) + std::to_string( line );
+        }
+        break;
+    
+        default:
+        break;
+    }
+    throw std::runtime_error( msg );
+}
+#define THROW_PARSING_ERROR( code, line, token ) throwPaserError( code, line, token, __FUNCTION__ )
+
+int precedence( int op )
+{
+    switch ( op )
+    {
+        case Lexer::_OR:
+        return 1;
+
+        case Lexer::_AND:
+        return 2;
+
+        case Lexer::_LESS:
+        case Lexer::_GREATER:
+        case Lexer::_NOT_EQUAL:
+        case Lexer::_EQUAL_EQUAL:
+        case Lexer::_LESS_EQUAL:
+        case Lexer::_GREATER_EQUAL:
+        return 3;
+
+        case Lexer::_ADD:
+        case Lexer::_SUB:
+        return 4;
+
+        case Lexer::_MOD:
+        return 5;
+
+        case Lexer::_MUL:
+        case Lexer::_DIV:
+        return 6;
+
+        case Lexer::_ADD_EQUAL:
+        case Lexer::_SUB_EQUAL:
+        case Lexer::_DIV_EQUAL:
+        case Lexer::_MUL_EQUAL:
+        return 7;
+
+        case Lexer::_EXP_EQUAL:
+        return 8;
+
+        case Lexer::_EXP:
+        case Lexer::_NOT:
+        case Lexer::_DECREMENT:
+        case Lexer::_INCREMENT:
+        case Lexer::_INVERT_EQUAL:
+        return 9;
+
+        default:
+        return 0;
+    }
+}
+
+void resolve( std::stack< Tree >& operators, std::stack< Tree >& operands )
+{
+    Tree a, b, op;
+    if ( operands.size() <= operators.size() )
+    {
+        // Pop two operands and one operator
+        b = operands.top();
+        operands.pop();
+
+        op = operators.top();
+        operators.pop();
+
+        op->push( b );
+        operands.push( op );
+    }
+    else 
+    {
+        // Pop two operands and one operator
+        b = operands.top();
+        operands.pop();
+
+        a = operands.top();
+        operands.pop();
+
+        op = operators.top();
+        operators.pop();
+        
+        op->push( a );
+        op->push( b );
+        operands.push( op );
+    }
+}
+
+void setValue( Lexer* lexer, Lexer::Token& token, Tree& var )
+{
+    token = lexer->getNextToken();
+    if( token == Lexer::_OPEN_PARENTHESIS )
+    {
+        if( token != Lexer::_CLOSE_PARENTHESIS )
+        {
+            token = lexer->getNextToken();
+            var->push( analyzeExpression( lexer, token ) );
+            if( token != Lexer::_CLOSE_PARENTHESIS )
+            {
+                THROW_PARSING_ERROR( EXPECTED_TOKEN, lexer->getCurrLine(), Lexer::_CLOSE_PARENTHESIS );
+            }
+            token = lexer->getNextToken();
+        }
+    }
+
+    token = lexer->getNextToken();
+}
+
+Tree analyzeDataType( Lexer* lexer, Lexer::Token& token )
+{
+    int ln = lexer->getCurrLine();
+    Tree var;
+
+    switch( token )
+    {
+        case Lexer::_BOOL:
+        {
+            var = new Tree::Node( ln, Lexer::_BOOL, lexer->getLexeme() );
+        }
+        break;
+
+        case Lexer::_INT:
+        {
+            var = new Tree::Node( ln, Lexer::_INT, lexer->getLexeme() );
+        }
+        break;
+
+        case Lexer::_LONG:
+        {
+            var = new Tree::Node( ln, Lexer::_LONG, lexer->getLexeme());
+        }
+        break;
+
+        case Lexer::_FLOAT:
+        {
+            var = new Tree::Node( ln, Lexer::_FLOAT, lexer->getLexeme() );
+        }
+        break;
+
+        case Lexer::_DOUBLE:
+        {
+            var = new Tree::Node( ln, Lexer::_DOUBLE, lexer->getLexeme() );
+        }
+        break;
+
+        case Lexer::_STRING:
+        {
+            var = new Tree::Node( ln, Lexer::_STRING, lexer->getLexeme() );
+        }
+        break;
+
+        case Lexer::_VAR_BOOL:
+        {
+            var = new Tree::Node( ln, Lexer::_BOOL );
+            setValue( lexer, token, var );
+        }
+        break;
+
+        case Lexer::_VAR_INT:
+        {
+            var = new Tree::Node( ln, Lexer::_INT );
+            setValue( lexer, token, var );
+        }
+        break;
+
+        case Lexer::_VAR_LONG:
+        {
+            var = new Tree::Node( ln, Lexer::_LONG );
+            setValue( lexer, token, var );
+        }
+        break;
+
+        case Lexer::_VAR_FLOAT:
+        {
+            var = new Tree::Node( ln, Lexer::_FLOAT );
+            setValue( lexer, token, var );
+        }
+        break;
+
+        case Lexer::_VAR_DOUBLE:
+        {
+            var = new Tree::Node( ln, Lexer::_DOUBLE );
+            setValue( lexer, token, var );
+        }
+        break;
+
+        case Lexer::_VAR_STRING:
+        {
+            var = new Tree::Node( ln, Lexer::_STRING );
+            setValue( lexer, token, var );
         }
         break;
 
         default:
+        {
+            THROW_PARSING_ERROR( UNSUPPORTED_TYPE, ln, token );
+        }
         break;
     }
-    throw std::runtime_error( errmsg );
+    return var;
 }
-#define THROW_SYNTAX_ERROR( code, line, msg ) throwSyntaxError( code, line, msg, __FUNCTION__ )
 
-
-Tree analyzeScopeBlock( Tree& node );
-Tree analyzeOperation( Tree& operand );
-Tree getIdentifier( Tree& declaration );
-Tree analyzeFunction( Tree& function );
-Tree analyzeHost( Tree& function );
-Tree analyzeNode( Tree& node );
-Tree getValue( Tree& node );
-
-Tree analyzeIf( Tree& node )
+Tree analyzeArrayObject( Lexer* lexer, Lexer::Token& token )
 {
-    Tree loop = new Tree::Node( Lexer::_IF );
-    loop->push( analyzeOperation( node[ 0 ][ 0 ] ) );
-    loop->push( analyzeNode( node[ 1 ] ) );
-    return loop;
+    Tree stmt = new Tree::Node( lexer->getCurrLine(), Lexer::_ARRAY );
+    token = lexer->getNextToken();
+    Tree e;
+
+    if( token == Lexer::_CLOSE_SQUARE_BRACKET )
+    {
+        token = lexer->getNextToken();
+        if( token == Lexer::_OPEN_PARENTHESIS )
+        {
+            token = lexer->getNextToken();
+            Tree size = new Tree::Node( lexer->getCurrLine(), Lexer::_ARRAY_SIZE );
+            size->push( analyzeExpression( lexer, token ) );
+            stmt->push( size );
+            if( token != Lexer::_CLOSE_PARENTHESIS )
+            {
+                THROW_PARSING_ERROR( MISSING_TOKEN, lexer->getCurrLine(), Lexer::_CLOSE_PARENTHESIS );
+            }
+            token = lexer->getNextToken();
+        }
+        if( token != Lexer::_SEMICOLON )
+        {
+            THROW_PARSING_ERROR( MISSING_TOKEN, lexer->getCurrLine(), Lexer::_SEMICOLON );
+        }
+        return stmt;
+    }
+
+    stmt->push( analyzeExpression( lexer, token ) );
+    while ( token == Lexer::_COMMA )
+    {
+        token = lexer->getNextToken();
+        stmt->push( analyzeExpression( lexer, token ) );
+    }
+
+    if( token != Lexer::_CLOSE_SQUARE_BRACKET )
+    {
+        THROW_PARSING_ERROR( MISSING_TOKEN, lexer->getCurrLine(), Lexer::_CLOSE_SQUARE_BRACKET );
+    }
+    token = lexer->getNextToken();
+    return stmt;
 }
 
-Tree analyzeElse( Tree& node )
+Tree getBodyStmt( Lexer* lexer, Lexer::Token& token )
+{
+    if ( token == Lexer::_OPEN_CURLY_BRACKET )
+    {
+        return analyzeScopeBlock( lexer, token );  
+    } 
+    else 
+    {
+        return analyzeIdentifier( lexer, token );  
+    } 
+}
+
+Tree analyzeForLoopCondition( Lexer* lexer, Lexer::Token& token )
+{
+    Tree condition_list = new Tree::Node( lexer->getCurrLine(), Lexer::_CONDITIONS );
+    token = lexer->getNextToken();
+
+    Tree conditions[ 3 ];
+    for (size_t i = 0; i < 3; i++)
+    {
+        conditions[ i ] = new Tree::Node( lexer->getCurrLine(), Lexer::_PARAMETERS );
+        conditions[ i ]->push( analyzeExpression( lexer, token ) );
+        while ( token != Lexer::_SEMICOLON && token == Lexer::_COMMA )
+        {
+            token = lexer->getNextToken();
+            conditions[ i ]->push( analyzeExpression( lexer, token ) );
+        }
+        if ( token != Lexer::_SEMICOLON && token != Lexer::_CLOSE_PARENTHESIS )
+        {
+            THROW_PARSING_ERROR( UNEXPECTED_TOKEN, lexer->getCurrLine(), token );
+        }
+        token = lexer->getNextToken();
+        condition_list->push( conditions[ i ] );
+    }
+    return condition_list;
+}
+
+Tree analyzeForLoop( Lexer* lexer, Lexer::Token& token )
 {
     Tree stmt;
-    if ( node[ 0 ]->node_type == Lexer::_IF )
+    if ( token == Lexer::_OPEN_PARENTHESIS )
     {
-        stmt = analyzeIf( node[ 0 ] );
-        stmt->node_type = Lexer::_ELSE_IF;
-    }
-    else
-    {
-        stmt = new Tree::Node( Lexer::_ELSE );
-        stmt->push( analyzeNode( node[ 0 ] ) );
+        stmt = new Tree::Node( lexer->getCurrLine(), Lexer::_FOR );
+        stmt->push( analyzeForLoopCondition( lexer, token ) );
+        stmt->push( getBodyStmt( lexer, token ) );
     }
     return stmt;
 }
 
-Tree analyzeForLoopCondition( Tree& node )
+Tree analyzeWhileLoop( Lexer* lexer, Lexer::Token& token )
 {
-    Tree conditions = new Tree::Node( Lexer::_CONDITIONS );
-
-    Tree params = new Tree::Node(0, Lexer::_PARAMETERS);
-    for(int k = 0; k < node[ 0 ].size(); k++)
+    Tree stmt;
+    if ( token == Lexer::_OPEN_PARENTHESIS )
     {
-        params->push( analyzeNode( node[ 0 ][ k ] ) );
-    }
-    conditions->push( params );
+        Tree conditions = new Tree::Node( lexer->getCurrLine(), Lexer::_CONDITIONS );
+        token = lexer->getNextToken();
 
-    for(int i = 1; i < node.size(); i++)
-    {
-        params = new Tree::Node(0, Lexer::_PARAMETERS);
-        for(int k = 0; k < node[ i ].size(); k++)
+        conditions->push( analyzeExpression( lexer, token ) );
+        if ( token != Lexer::_CLOSE_PARENTHESIS )
         {
-            params->push( analyzeOperation( node[ i ][ k ] ) );
+            THROW_PARSING_ERROR( UNEXPECTED_TOKEN, lexer->getCurrLine(), token );
         }
-        conditions->push( params );
+        token = lexer->getNextToken();
+
+        stmt = new Tree::Node( lexer->getCurrLine(), Lexer::_WHILE );
+        stmt->push( conditions );
+
+        stmt->push( getBodyStmt( lexer, token ) );
     }
-    return conditions;
+    return stmt;
 }
 
-Tree analyzeForLoop( Tree& node )
+Tree analyzeIfStatement( Lexer* lexer, Lexer::Token& token )
 {
-    Tree loop = new Tree::Node( Lexer::_FOR );
-    loop->push( analyzeForLoopCondition( node[ 0 ] ) );
-    loop->push( analyzeNode( node[ 1 ] ) );
-    return loop;
-}
-
-Tree analyzeWhileLoop( Tree& node )
-{
-    Tree loop = new Tree::Node( Lexer::_WHILE );
-    loop->push( analyzeOperation( node[ 0 ] ) );
-    loop->push( analyzeNode( node[ 1 ] ) );
-    return loop;
-}
-
-Tree analyzeScopeBlock( Tree& node )
-{
-    Tree block = new Tree::Node(0, Lexer::_SCOPE_BLOCK);
-    for( uint32_t i = 0; i < node.size(); i++ )
+    Tree stmt;
+    if ( token == Lexer::_OPEN_PARENTHESIS )
     {
-        block->push( analyzeNode( node[ i ] ) );
+        stmt = new Tree::Node( lexer->getCurrLine(), Lexer::_IF );
+        Tree conditions = new Tree::Node( lexer->getCurrLine(), Lexer::_CONDITIONS );
+        token = lexer->getNextToken();
+
+        conditions->push( analyzeExpression( lexer, token ) );
+        stmt->push( conditions );
+
+        if ( token != Lexer::_CLOSE_PARENTHESIS )
+        {
+            THROW_PARSING_ERROR( UNEXPECTED_TOKEN, lexer->getCurrLine(), token );
+        }
+        token = lexer->getNextToken();
+        stmt->push( getBodyStmt( lexer, token ) );
     }
-    return block;
+    return stmt;
 }
 
-Tree analyzeParameter( Tree& node )
+Tree analyzeElseStatement( Lexer* lexer, Lexer::Token& token )
 {
-    Tree var;
-    switch ( node->node_type )
+    Tree els = new Tree::Node( lexer->getCurrLine(), Lexer::_ELSE );
+    token = lexer->getNextToken();
+
+    if ( token == Lexer::_IF )
+    {
+        token = lexer->getNextToken();
+        els->push( analyzeIfStatement( lexer,  token ) );
+    }
+    else 
+    {
+        els->push( getBodyStmt( lexer, token ) );
+    }
+    return els;
+}
+
+Tree analyzeScopeBlock( Lexer* lexer, Lexer::Token& token )
+{
+    Tree stmts = new Tree::Node( lexer->getCurrLine(), Lexer::_SCOPE_BLOCK );
+    token = lexer->getNextToken();
+
+    if ( token == Lexer::_CLOSE_CURLY_BRACKET )
+    {
+        token = lexer->getNextToken();
+        return stmts;
+    }
+
+    while ( token != Lexer::_CLOSE_CURLY_BRACKET )
+    {
+        switch ( token )
+        {
+            case Lexer::_IDENTIFIER:
+            {   
+                stmts->push( analyzeIdentifier( lexer, token ) );
+            }
+            break;
+
+            case Lexer::_CONST:
+            {   
+                token = lexer->getNextToken();
+                stmts->push( analyzeConstant( lexer, token ) );
+            }
+            break;
+
+            case Lexer::_IF:
+            {   
+                token = lexer->getNextToken();
+                stmts->push( analyzeIfStatement( lexer, token ) );
+                while ( token == Lexer::_ELSE )
+                {
+                    stmts->push( analyzeElseStatement( lexer, token ) );
+                }
+            }
+            break;
+
+            case Lexer::_FOR:
+            {
+                token = lexer->getNextToken();
+                stmts->push( analyzeForLoop( lexer, token ) );          
+            }
+            break;
+
+            case Lexer::_WHILE:
+            {  
+                token = lexer->getNextToken();
+                stmts->push( analyzeWhileLoop( lexer, token ) );
+            }
+            break;
+
+            case Lexer::_OPEN_CURLY_BRACKET:
+            {
+                stmts->push( analyzeScopeBlock( lexer, token ) ); 
+            }
+            break;
+
+            case Lexer::_CONTINUE:
+            case Lexer::_BREAK:
+            {
+                stmts->push( new Tree::Node( lexer->getCurrLine(), token ) ); 
+                token = lexer->getNextToken();
+                if ( token != Lexer::_SEMICOLON )
+                {
+                    THROW_PARSING_ERROR( EXPECTED_TOKEN, lexer->getCurrLine(), Lexer::_SEMICOLON );
+                }
+                token = lexer->getNextToken();
+            }
+            break;
+
+            default:
+            {
+                token = lexer->getNextToken();
+            }
+            break;
+        }      
+    }
+    token = lexer->getNextToken();
+    return stmts;
+}
+
+Tree getFunctParam( Lexer* lexer, Lexer::Token& token )
+{
+    Tree stmt;
+    switch ( token )
+    {
+        case Lexer::_FUNCTION:
+        {
+            stmt = new Tree::Node( lexer->getCurrLine(), Lexer::_FUNCTION );
+            if ( token != Lexer::_COMMA && token != Lexer::_CLOSE_PARENTHESIS )
+            {
+                THROW_PARSING_ERROR( UNEXPECTED_TOKEN, lexer->getCurrLine(), token );
+            }
+        }
+        break;
+
+        case Lexer::_OPEN_SQUARE_BRACKET:
+        {
+            stmt = new Tree::Node( lexer->getCurrLine(), Lexer::_ARRAY );
+            token = lexer->getNextToken();
+            if ( token != Lexer::_CLOSE_SQUARE_BRACKET )
+            {
+                THROW_PARSING_ERROR( EXPECTED_TOKEN, lexer->getCurrLine(), Lexer::_CLOSE_SQUARE_BRACKET );
+            }
+            token = lexer->getNextToken();
+            if ( token != Lexer::_COMMA && token != Lexer::_CLOSE_PARENTHESIS )
+            {
+                THROW_PARSING_ERROR( UNEXPECTED_TOKEN, lexer->getCurrLine(), token );
+            }
+        }
+        break;
+
+        default:
+        {
+            stmt = analyzeDataType( lexer, token );
+            if ( token != Lexer::_COMMA && token != Lexer::_CLOSE_PARENTHESIS )
+            {
+                THROW_PARSING_ERROR( UNEXPECTED_TOKEN, lexer->getCurrLine(), token );
+            }
+        }
+        break;
+    }
+    return stmt;
+}
+
+Tree analyzeFunctParameter( Lexer* lexer, Lexer::Token& token )
+{
+    Tree expr;
+    switch ( token )
     {
         case Lexer::_IDENTIFIER:
         {
-            var = getIdentifier( node );
-        }
-        break;
+            Tree identifier = new Tree::Node( lexer->getCurrLine(), Lexer::_IDENTIFIER, lexer->getLexeme() );
+            token = lexer->getNextToken();
 
-        case Lexer::_DECLARATION:
-        {
-            var = new Tree::Node( Lexer::_VAR_STATIC, node->nodes[ 0 ]->id );
-            var->push( analyzeOperation( node->nodes[ 1 ] ) );
-        }
-        break;
+            switch ( token )
+            {
+                case Lexer::_EQUAL:
+                {
+                    token = lexer->getNextToken();
+                    expr = new Tree::Node( lexer->getCurrLine(), Lexer::_ASSIGN );
+                    expr->push( identifier );
+                    expr->push( getFunctParam( lexer, token ) );
+                }
+                break;
 
-        case Lexer::_ASSIGN:
-        {
-            var = new Tree::Node( Lexer::_VAR, node->nodes[ 0 ]->id );
-            var->push( analyzeOperation( node->nodes[ 1 ] ) );
+                case Lexer::_COLON:
+                {
+                    token = lexer->getNextToken();
+                    expr = new Tree::Node( lexer->getCurrLine(), Lexer::_ASSIGN );
+                    expr->push( identifier );
+                    expr->push( getFunctParam( lexer, token ) );
+                    identifier->type = Lexer::_STATIC_IDENTIFIER;
+                }
+                break;
+
+                case Lexer::_COMMA:
+                {
+                    expr = identifier;
+                }
+                break;
+            
+                default:
+                {
+                    THROW_PARSING_ERROR( UNEXPECTED_TOKEN, lexer->getCurrLine(), token );
+                }
+                break;
+            }
         }
         break;
 
         case Lexer::_ADDRESS:
         {
-            var = new Tree::Node( Lexer::_ADDRESS );
-            var = analyzeParameter( node->nodes[ 0 ] );
+            expr = new Tree::Node( lexer->getCurrLine(), Lexer::_ADDRESS );
+            token = lexer->getNextToken();
+            expr->push( analyzeFunctParameter( lexer, token ) );
         }
         break;
 
         case Lexer::_CONST:
         {
-            var = analyzeParameter( node->nodes[ 0 ] );
-        }
-        break;
-
-        default:
-        {
-            THROW_SYNTAX_ERROR
-            ( 
-                SYNTAX_ERROR_UNKNOWN_NODE_TYPE, 
-                node->line, Lexer::toString( node->node_type ) 
-            );
-        }
-        break;
-    }
-    return var;
-}
-
-Tree analyzeParameters( Tree& node )
-{
-    Tree parameters = new Tree::Node( node->line, Lexer::_ENCLOSE_PARENTHESIS );
-    for( int i = 0; i < node->nodes.size(); i++ )
-    {
-        parameters->push( analyzeParameter( node->nodes[ i ] ) );
-    }
-    return parameters;
-}
-
-Tree analyzeFunction( Tree& function )
-{
-    Tree function_definition = new Tree::Node();
-    function_definition->node_type = Lexer::_FUNCTION; 
-    function_definition->push( analyzeParameters( function->nodes[ 0 ] ) );
-    function_definition->push( analyzeScopeBlock( function->nodes[ 1 ] ) );
-    return function_definition;
-}
-
-Tree analyzeHost( Tree& function )
-{
-    Tree function_definition = new Tree::Node();
-    function_definition->node_type = Lexer::_HOST; 
-    function_definition->push( analyzeParameters( function->nodes[ 0 ] ) );
-    return function_definition;
-}
-
-Tree getIdentifier( Tree& node )
-{
-    Tree var = new Tree::Node();
-    if ( node->nodes.empty() )
-    {
-        var->node_type = Lexer::_VAR;
-        var->id = node->id;
-    }
-    else
-    {
-        var->node_type = node->nodes[ 0 ]->node_type;
-        var->id = node->id;
-    }
-    return var;
-}
-
-
-Tree newValue( Lexer::Token node_type, Tree node )
-{
-    Tree var = new Tree::Node();
-    var->node_type = node_type;
-    var->id = node->id;
-    if( !node->nodes.empty() )
-    {
-        var->push( analyzeOperation( node->nodes[ 0 ] ) );
-    }
-    return var;
-}
-
-Tree getValue( Tree& node )
-{
-    Tree var;
-    switch( node->node_type )
-    {
-        case Lexer::_VAR_BOOL:
-        case Lexer::_BOOL:
-        { 
-            var = newValue( Lexer::_BOOL, node );
-        }
-        break;
-
-        case Lexer::_VAR_INT:
-        case Lexer::_INT:
-        { 
-            var = newValue( Lexer::_INT, node );
-        }
-        break;
-
-        case Lexer::_VAR_LONG:
-        case Lexer::_LONG:
-        { 
-            var = newValue( Lexer::_LONG, node );
-        }
-        break;
-
-        case Lexer::_VAR_FLOAT:
-        case Lexer::_FLOAT:
-        { 
-            var = newValue( Lexer::_FLOAT, node );
-        }
-        break;
-
-        case Lexer::_VAR_DOUBLE:
-        case Lexer::_DOUBLE:
-        { 
-            var = newValue( Lexer::_DOUBLE, node );
-        }
-        break;
-
-        case Lexer::_VAR_STRING:
-        case Lexer::_STRING:
-        { 
-            var = newValue( Lexer::_STRING, node );
-        }
-        break;
-
-        case Lexer::_FUNCTION:
-        {   
-            var = analyzeFunction( node );
-        }
-        break;
-
-        case Lexer::_HOST:
-        {   
-            var = analyzeHost( node );
-        }
-        break;
-
-        case Lexer::_ARRAY:
-        { 
-            var = node;
-        }
-        break;
-
-        case Lexer::_CONST:
-        { 
-            var = getValue( node->nodes[ 0 ] );
-            switch ( var->node_type )
-            {
-                case Lexer::_INT:
-                {
-                    var->node_type = Lexer::_CONST_INT;
-                }
-                break;
-
-                case Lexer::_LONG:
-                {   
-                    var->node_type = Lexer::_CONST_LONG;
-                }
-                break;
-
-                case Lexer::_FLOAT:
-                {   
-                    var->node_type = Lexer::_CONST_FLOAT;
-                }
-                break;
-
-                case Lexer::_DOUBLE:
-                {   
-                    var->node_type = Lexer::_CONST_DOUBLE;
-                }
-                break;
-
-                case Lexer::_STRING:
-                {   
-                    var->node_type = Lexer::_CONST_STRING;
-                }
-                break;
-
-                case Lexer::_FUNCTION:
-                {   
-                    var->node_type = Lexer::_CONST_FUNCTION;
-                }
-                break;
-
-                case Lexer::_ARRAY:
-                {   
-                    var->node_type = Lexer::_CONST_STRING;
-                }
-                break;
-
-                default:
-                {
-                    THROW_SYNTAX_ERROR
-                    ( 
-                        SYNTAX_ERROR_UNKNOWN_DATA_TYPE, 
-                        node->line, Lexer::toString( var->node_type ) 
-                    );
-                }
-                break;
-            }
-        }
-        break;
-
-        default:
-        {
-            THROW_SYNTAX_ERROR
-            ( 
-                SYNTAX_ERROR_UNKNOWN_NODE_TYPE, 
-                node->line, Lexer::toString( node->node_type ) 
-            );
-        }
-        break;
-    }
-    return var;
-}
-
-Tree analyzeOperation( Tree& operand )
-{
-    Tree op;
-    switch( operand->node_type )
-    {
-        default:
-        {   
-            THROW_SYNTAX_ERROR
-            ( 
-                SYNTAX_ERROR_UNKNOWN_NODE_TYPE, 
-                operand->line, Lexer::toString( operand->node_type ) 
-            );
-        }
-        break;
-
-        case Lexer::_IDENTIFIER:
-        {   
-            op = getIdentifier( operand );
-        }
-        break;
-
-        case Lexer::_ARRAY_INDEXED:
-        {   
-            op = new Tree::Node( Lexer::_VAR, operand->id );
-            op->push( new Tree::Node( Lexer::_ARRAY_INDEXED, operand->nodes[ 0 ]->id ) );
-        }
-        break;
-
-        case Lexer::_ADD:
-        case Lexer::_SUB:
-        case Lexer::_DIV:
-        case Lexer::_MUL:
-        case Lexer::_MOD:
-        case Lexer::_OR:
-        case Lexer::_OR_EQUAL:
-        case Lexer::_AND:
-        case Lexer::_AND_EQUAL:
-        case Lexer::_LESS:
-        case Lexer::_LESS_EQUAL:
-        case Lexer::_GREATER:
-        case Lexer::_GREATER_EQUAL:
-        case Lexer::_EQUAL_EQUAL:
-        {   
-            op = new Tree::Node( operand->node_type );
-            op->push( analyzeOperation( operand->nodes[ 0 ] ) );
-            op->push( analyzeOperation( operand->nodes[ 1 ] ) );
-        }
-        break;
-
-        case Lexer::_INCREMENT:
-        case Lexer::_DECREMENT:
-        case Lexer::_NOT:
-        case Lexer::_INVERT:
-        {   
-            op = new Tree::Node( operand->node_type );
-            op->id = operand->nodes[ 0 ]->id;
-        }
-        break;
-
-        case Lexer::_ADD_EQUAL:
-        case Lexer::_SUB_EQUAL:
-        case Lexer::_MUL_EQUAL:
-        case Lexer::_DIV_EQUAL:
-        case Lexer::_MOD_EQUAL:
-        case Lexer::_EXP_EQUAL:
-        case Lexer::_INVERT_EQUAL:
-        {   
-            Tree n = new Tree::Node( operand->node_type );
-            n->push( getIdentifier( operand->nodes[ 0 ] ) );
-            n->push( analyzeOperation( operand->nodes[ 1 ] ) );
-
-            op = new Tree::Node( Lexer::_ASSIGN );
-            op->push( n->nodes[ 0 ] );
-            op->push( n );
-        }
-        break;
-
-        case Lexer::_ENCLOSE_PARENTHESIS:
-        {   
-            op = new Tree::Node( Lexer::_ENCLOSE_PARENTHESIS );
-            op->push( analyzeOperation( operand->nodes[ 0 ] ) );
-        }
-        break;
-
-        case Lexer::_FUNCTION_CALL:
-        {   
-            op = new Tree::Node( Lexer::_FUNCTION_CALL );
-            for (size_t i = 0; i < operand.size(); i++)
-            {
-                op->push( analyzeOperation( operand[ i ] ) );
-            }
-        }
-        break;
-
-        case Lexer::_INT:
-        case Lexer::_BOOL:
-        case Lexer::_LONG:
-        case Lexer::_CONST:
-        case Lexer::_FLOAT:
-        case Lexer::_DOUBLE:
-        case Lexer::_STRING:
-        case Lexer::_VAR_INT:
-        case Lexer::_VAR_BOOL:
-        case Lexer::_VAR_LONG:
-        case Lexer::_VAR_FLOAT:
-        case Lexer::_VAR_DOUBLE:
-        case Lexer::_VAR_STRING:
-        case Lexer::_FUNCTION:
-        case Lexer::_ARRAY:
-        {   
-            op = getValue( operand );
-        }
-        break;
-    }
-    return op;
-}
-
-Tree analyzeNode( Tree& node )
-{
-    Tree var;
-    switch( node->node_type )
-    {
-        case Lexer::_IDENTIFIER:
-        {   
-            var = getIdentifier( node );
-        }
-        break;
-
-        case Lexer::_DECLARATION:
-        {   
-            var = new Tree::Node( Lexer::_VAR_STATIC, node->nodes[ 0 ]->id );
-            var->push( analyzeOperation( node->nodes[ 1 ] ) );
-        }
-        break;
-
-        case Lexer::_ASSIGN:
-        {   
-            var = new Tree::Node( Lexer::_ASSIGN );
-            var->push( new Tree::Node( Lexer::_VAR, node->nodes[ 0 ]->id ) );
-            var->push( analyzeOperation( node->nodes[ 1 ] ) );
-        }
-        break;
-
-        case Lexer::_CONST:
-        {   
-            var = analyzeNode( node->nodes[ 0 ] );
-            switch( var->node_type )
+            token = lexer->getNextToken();
+            expr = analyzeFunctParameter( lexer, token );
+            switch( expr->type )
             {
                 case Lexer::_IDENTIFIER:
                 {   
-                    var->node_type = Lexer::_CONST_VAR;
+                    expr->type = Lexer::_CONST_IDENTIFIER;
                 }
                 break;
 
                 case Lexer::_ASSIGN:
                 {   
-                    var->nodes[ 0 ]->node_type = Lexer::_CONST_VAR;
+                    switch( expr[ 0 ]->type )
+                    {
+                        case Lexer::_IDENTIFIER:
+                        {   
+                            expr[ 0 ]->type = Lexer::_CONST_IDENTIFIER;
+                        }
+                        break;
+
+                        case Lexer::_STATIC_IDENTIFIER:
+                        {   
+                            expr[ 0 ]->type = Lexer::_CONST_STATIC_IDENTIFIER;
+                        }
+                        break;
+
+                        default:
+                        {
+                            THROW_PARSING_ERROR( UNEXPECTED_TOKEN, lexer->getCurrLine(),  token );
+                        }
+                        break;
+                    }
                 }
                 break;
 
-                case Lexer::_VAR_STATIC:
+                case Lexer::_ADDRESS:
                 {   
-                    var->node_type = Lexer::_CONST_VAR_STATIC;
+                    switch( expr[ 0 ]->type )
+                    {
+                        case Lexer::_IDENTIFIER:
+                        {   
+                            expr[ 0 ]->type = Lexer::_CONST_IDENTIFIER;
+                        }
+                        break;
+
+                        case Lexer::_ASSIGN:
+                        {   
+                            switch( expr[ 0 ][ 0 ]->type )
+                            {
+                                case Lexer::_IDENTIFIER:
+                                {   
+                                    expr[ 0 ][ 0 ]->type = Lexer::_CONST_IDENTIFIER;
+                                }
+                                break;
+
+                                case Lexer::_STATIC_IDENTIFIER:
+                                {   
+                                    expr[ 0 ][ 0 ]->type = Lexer::_CONST_STATIC_IDENTIFIER;
+                                }
+                                break;
+
+                                default:
+                                {
+                                    THROW_PARSING_ERROR( UNEXPECTED_TOKEN, lexer->getCurrLine(),  token );
+                                }
+                                break;
+                            }
+                        }
+                        break;
+
+                        default:
+                        {
+                            THROW_PARSING_ERROR( UNEXPECTED_TOKEN, lexer->getCurrLine(),  token );
+                        }
+                        break;
+                    }
                 }
                 break;
 
                 default:
                 {
-                    THROW_SYNTAX_ERROR
-                    ( 
-                        SYNTAX_ERROR_UNKNOWN_NODE_TYPE, 
-                        var->line, Lexer::toString( var->node_type ) 
-                    );
+                    THROW_PARSING_ERROR( UNEXPECTED_TOKEN, lexer->getCurrLine(),  token );
                 }
                 break;
             }
         }
         break;
 
-        case Lexer::_FUNCTION_CALL:
-        {   
-            var = analyzeOperation( node );
+        default:
+        {
+            THROW_PARSING_ERROR( UNEXPECTED_TOKEN, lexer->getCurrLine(), token );
+        }
+        break;
+    }
+    return expr;
+}
+
+Tree analyzeFunctionParameters( Lexer* lexer, Lexer::Token& token )
+{
+    Tree parameters = new Tree::Node( lexer->getCurrLine(), Lexer::_PARAMETERS );
+    token = lexer->getNextToken();
+
+    if( token == Lexer::_CLOSE_PARENTHESIS )
+    {
+        token = lexer->getNextToken();
+        return parameters;
+    }
+
+    parameters->push( analyzeFunctParameter( lexer, token ) );
+    while ( token == Lexer::_COMMA )
+    {
+        token = lexer->getNextToken();
+        parameters->push( analyzeFunctParameter( lexer, token ) );
+    }
+
+    if( token != Lexer::_CLOSE_PARENTHESIS )
+    {
+        THROW_PARSING_ERROR( MISSING_TOKEN, lexer->getCurrLine(), Lexer::_CLOSE_PARENTHESIS );
+    }
+
+    token = lexer->getNextToken();
+    return parameters;
+}
+
+Tree analyzeFunction( Lexer* lexer, Lexer::Token& token )
+{
+    Tree function = new Tree::Node( lexer->getCurrLine(), Lexer::_FUNCTION );
+    token = lexer->getNextToken();
+    function->push( analyzeFunctionParameters( lexer, token ) );
+    function->push( analyzeScopeBlock( lexer, token ) );
+    return function;
+}
+
+Tree analyzeHost( Lexer* lexer, Lexer::Token& token )
+{
+    Tree function = new Tree::Node( lexer->getCurrLine(), Lexer::_HOST );
+    token = lexer->getNextToken();
+
+    Tree params = analyzeFunctionParameters( lexer, token );
+    for(int i=0; i<params->nodes.size(); i++)
+    {
+        function->push( params->nodes[ i ] );
+    }
+    return function;
+}
+
+Tree analyzeExpressionIdentifier( Lexer* lexer, Lexer::Token& token )
+{   
+    Tree identifier = new Tree::Node( Lexer::_IDENTIFIER, lexer->getLexeme() );
+    token = lexer->getNextToken();
+    Tree stmt;
+
+    switch ( token )
+    {
+        case Lexer::_OPEN_PARENTHESIS: // function call
+        {
+            stmt = identifier;
+            stmt->type = Lexer::_FUNCTION_CALL;
+            stmt->line = lexer->getCurrLine();
+            token = lexer->getNextToken();
+
+            if ( token != Lexer::_CLOSE_PARENTHESIS )
+            {
+                stmt->push( analyzeExpression( lexer, token ) );
+                while( token == Lexer::_COMMA )
+                {
+                    token = lexer->getNextToken();
+                    stmt->push( analyzeExpression( lexer, token ) );
+                }
+                if ( token != Lexer::_CLOSE_PARENTHESIS )
+                {
+                    THROW_PARSING_ERROR( UNEXPECTED_TOKEN, lexer->getCurrLine(), token );
+                }
+                token = lexer->getNextToken();
+            }
         }
         break;
 
-        case Lexer::_SCOPE_BLOCK:
+        case Lexer::_OPEN_SQUARE_BRACKET: // array index accessing
         {
-            var = analyzeScopeBlock( node );
+            stmt = identifier;
+            stmt->type = Lexer::_ARRAY_INDEXED;
+            stmt->line = lexer->getCurrLine();
+            token = lexer->getNextToken();
+
+            stmt->push( analyzeExpression( lexer, token ) );
+            if ( token != Lexer::_CLOSE_SQUARE_BRACKET )
+            {
+                THROW_PARSING_ERROR( UNEXPECTED_TOKEN, lexer->getCurrLine(), token );
+            }
+            token = lexer->getNextToken();
         }
         break;
 
-        case Lexer::_WHILE:
+        case Lexer::_EQUAL:
         {
-            var = analyzeWhileLoop( node );
-        }
-        break;
-
-        case Lexer::_FOR:
-        {
-            var = analyzeForLoop( node );
-        }
-        break;
-
-        case Lexer::_IF:
-        {
-            var = analyzeIf( node );
-        }
-        break;
-
-        case Lexer::_ELSE:
-        {
-            var = analyzeElse( node );
-        }
-        break;
-
-        case Lexer::_CONTINUE:
-        case Lexer::_BREAK:
-        {
-            var = node;
+            stmt = new Tree::Node( lexer->getCurrLine(), Lexer::_ASSIGN );
+            token = lexer->getNextToken();
+            stmt->push( identifier );
+            stmt->push( analyzeExpression( lexer, token ) );
         }
         break;
 
@@ -593,80 +826,445 @@ Tree analyzeNode( Tree& node )
         case Lexer::_SUB_EQUAL:
         case Lexer::_MUL_EQUAL:
         case Lexer::_DIV_EQUAL:
-        case Lexer::_MOD_EQUAL:
         case Lexer::_EXP_EQUAL:
+        case Lexer::_MOD_EQUAL:
         case Lexer::_INVERT_EQUAL:
-        {   
-            var = analyzeOperation( node );
+        {
+            stmt = new Tree::Node( lexer->getCurrLine(), token ); 
+            token = lexer->getNextToken();
+
+            stmt->push( identifier );
+            stmt->push( analyzeExpression( lexer, token ) ); 
         }
         break;
 
         default:
-        { 
-            THROW_SYNTAX_ERROR
-            ( 
-                SYNTAX_ERROR_UNKNOWN_NODE_TYPE, 
-                node->line, Lexer::toString( node->node_type ) 
-            );
+        {
+            stmt = identifier;
         }
         break;
     }
-    return var;
+    
+    return stmt;
 }
 
-bool Syntax::analyze( Parser* parser )
+bool tokenIsDelimiter( Lexer::Token& token )
 {
+    switch ( token )
+    {
+        case Lexer::_COMMA:
+        case Lexer::_CLOSE_SQUARE_BRACKET:
+        case Lexer::_CLOSE_CURLY_BRACKET: 
+        case Lexer::_CLOSE_PARENTHESIS:
+        case Lexer::_OPEN_CURLY_BRACKET: 
+        case Lexer::_SEMICOLON: 
+        case Lexer::_EQUAL: 
+        case Lexer::_END_STREAM: return true;
+
+        default: return false;
+    }
+}
+
+Tree analyzeExpression( Lexer* lexer, Lexer::Token& token )
+{
+    std::stack< Tree > operators; // Stack to hold operators
+    std::stack< Tree > operands;  // Stack to hold operands
+    bool op = false;
+    Tree e;
+
+    while( !tokenIsDelimiter( token ) )
+    {
+        switch ( token )
+        {
+            default:
+            {
+                token = lexer->getNextToken();
+            }
+            break;
+
+            case Lexer::_IDENTIFIER:
+            {
+                operands.push( analyzeIdentifier( lexer, token ) );
+                op = false;
+            }
+            break;
+
+            case Lexer::_OPEN_SQUARE_BRACKET:
+            {
+                operands.push( analyzeArrayObject( lexer, token ) );
+                op = false;
+            }
+            break;
+
+            case Lexer::_OPEN_PARENTHESIS:
+            {
+                e = new Tree::Node( lexer->getCurrLine(), Lexer::_ENCLOSE_PARENTHESIS );
+                token = lexer->getNextToken();
+
+                if ( token == Lexer::_CLOSE_PARENTHESIS )
+                {
+                    THROW_PARSING_ERROR( EXPECTED_TOKEN, lexer->getCurrLine(), Lexer::_SEMICOLON );
+                }
+
+                e->push( analyzeExpression( lexer, token ) );
+                if ( token != Lexer::_CLOSE_PARENTHESIS )
+                {
+                    THROW_PARSING_ERROR( EXPECTED_TOKEN, lexer->getCurrLine(), Lexer::_SEMICOLON );
+                }
+
+                token = lexer->getNextToken();
+                operands.push( e );
+                op = false;
+            }
+            break;
+
+            case Lexer::_NULL:
+            {
+                operands.push( new Tree::Node( lexer->getCurrLine(), Lexer::_NULL ) );
+                token = lexer->getNextToken();
+            }
+            break;
+
+            case Lexer::_VAR_STRING:
+            case Lexer::_VAR_DOUBLE:
+            case Lexer::_VAR_FLOAT:
+            case Lexer::_VAR_LONG:
+            case Lexer::_VAR_INT:
+            case Lexer::_STRING:
+            case Lexer::_DOUBLE:
+            case Lexer::_FLOAT:
+            case Lexer::_LONG:
+            case Lexer::_INT:
+            case Lexer::_BOOL:
+            {
+                operands.push( analyzeDataType( lexer, token ) );
+                op = false;
+            }
+            break;
+
+            case Lexer::_INVERT:
+            case Lexer::_NOT:
+            {
+                Tree n = new Tree::Node( lexer->getCurrLine(), token );
+                token = lexer->getNextToken();
+
+                n->push( analyzeExpression( lexer, token ) );
+                operands.push( n );
+                op = false;
+            }
+            break;
+
+            /**
+             * OPERATORS
+             **/
+            case Lexer::_MOD:
+            case Lexer::_EXP:
+            case Lexer::_ADD:
+            case Lexer::_SUB:
+            case Lexer::_MUL:
+            case Lexer::_DIV:
+            case Lexer::_AND:
+            case Lexer::_OR:
+            case Lexer::_LESS:
+            case Lexer::_LESS_EQUAL:
+            case Lexer::_EQUAL_EQUAL:
+            case Lexer::_GREATER:
+            case Lexer::_GREATER_EQUAL:
+            case Lexer::_NOT_EQUAL:
+            case Lexer::_DECREMENT:
+            case Lexer::_INCREMENT:
+            case Lexer::_ADD_EQUAL:
+            case Lexer::_SUB_EQUAL:
+            case Lexer::_MUL_EQUAL:
+            case Lexer::_DIV_EQUAL:
+            case Lexer::_EXP_EQUAL:
+            case Lexer::_INVERT_EQUAL:
+            {
+                if ( !op )
+                {
+                    while (!operators.empty() && precedence( operators.top()->type ) >= precedence( token ) )
+                    {
+                        resolve( operators, operands );
+                    }
+                }
+                
+                operators.push( new Tree::Node( lexer->getCurrLine(), token ) );
+                token = lexer->getNextToken();
+                op = true;
+            }
+            break;
+        }
+    }
+
+    // While the operator stack is not empty
+    while (!operators.empty()) 
+    {
+        resolve( operators, operands );
+    }
+
+    return operands.top();
+}
+
+Tree analyzeRightTerm( Lexer* lexer, Lexer::Token& token )
+{
+    Tree stmt;
+    switch ( token )
+    {
+        case Lexer::_FUNCTION:
+        {
+            stmt = analyzeFunction( lexer, token );
+        }
+        break;
+
+        case Lexer::_HOST:
+        {
+            stmt = analyzeHost( lexer, token );
+        }
+        break;
+
+        // case Lexer::_STRUCT: TODO: for the future
+        // {}
+        // break;
+        
+        default:
+        {
+            stmt = analyzeExpression( lexer, token );
+        }
+        break;
+    }
+    
+    return stmt;
+}
+
+Tree analyzeIdentifier( Lexer* lexer, Lexer::Token& token )
+{   
+    Tree identifier = new Tree::Node( lexer->getCurrLine(), Lexer::_IDENTIFIER, lexer->getLexeme() );
+    token = lexer->getNextToken();
+    Tree stmt;
+
+    switch ( token )
+    {
+        case Lexer::_EQUAL:
+        {
+            stmt = new Tree::Node( lexer->getCurrLine(), Lexer::_ASSIGN );
+            token = lexer->getNextToken();
+            stmt->push( identifier );
+            stmt->push( analyzeRightTerm( lexer, token ) );
+        }
+        break;
+
+        case Lexer::_COLON:
+        {
+            stmt = new Tree::Node( lexer->getCurrLine(), Lexer::_ASSIGN );
+            identifier->type = Lexer::_STATIC_IDENTIFIER;
+            token = lexer->getNextToken();
+            stmt->push( identifier );
+            stmt->push( analyzeRightTerm( lexer, token ) );
+        }
+        break;
+
+        case Lexer::_OPEN_PARENTHESIS: // function call
+        {
+            stmt = identifier;
+            stmt->type = Lexer::_FUNCTION_CALL;
+            token = lexer->getNextToken();
+
+            if ( token != Lexer::_CLOSE_PARENTHESIS )
+            {
+                stmt->push( analyzeExpression( lexer, token ) );
+                while( token == Lexer::_COMMA )
+                {
+                    token = lexer->getNextToken();
+                    stmt->push( analyzeExpression( lexer, token ) );
+                }
+
+                if ( token != Lexer::_CLOSE_PARENTHESIS )
+                {
+                    THROW_PARSING_ERROR( UNEXPECTED_TOKEN, lexer->getCurrLine(), token );
+                }
+                token = lexer->getNextToken();
+
+                if ( token != Lexer::_SEMICOLON )
+                {
+                    THROW_PARSING_ERROR( EXPECTED_TOKEN, lexer->getCurrLine(), Lexer::_SEMICOLON );
+                }
+                token = lexer->getNextToken();
+            }
+        }
+        break;
+
+        case Lexer::_OPEN_SQUARE_BRACKET: // array index accessing
+        {
+            stmt = identifier;
+            stmt->type = Lexer::_ARRAY_INDEXED;
+            stmt->line = lexer->getCurrLine();
+            token = lexer->getNextToken();
+
+            stmt->push( analyzeExpression( lexer, token ) );
+
+            if ( token != Lexer::_CLOSE_SQUARE_BRACKET )
+            {
+                THROW_PARSING_ERROR( UNEXPECTED_TOKEN, lexer->getCurrLine(), token );
+            }
+            token = lexer->getNextToken();
+        }
+        break;
+
+        case Lexer::_ADD_EQUAL:
+        case Lexer::_SUB_EQUAL:
+        case Lexer::_MUL_EQUAL:
+        case Lexer::_DIV_EQUAL:
+        case Lexer::_EXP_EQUAL:
+        case Lexer::_MOD_EQUAL:
+        case Lexer::_INVERT_EQUAL:
+        {
+            stmt = new Tree::Node( lexer->getCurrLine(), token ); 
+            token = lexer->getNextToken();
+
+            stmt->push( identifier );
+            stmt->push( analyzeExpression( lexer, token ) ); 
+        }
+        break;
+
+        default:
+        {
+            stmt = identifier;
+        }
+        break;
+    }
+    
+    return stmt;
+}
+
+Tree analyzeConstant( Lexer* lexer, Lexer::Token& token )
+{
+    token = lexer->getNextToken();
+    Tree stmt = analyzeIdentifier( lexer, token );
+    
+    switch( stmt->type )
+    {
+        case Lexer::_ASSIGN:
+        {   
+            stmt[ 0 ]->type = Lexer::_CONST_IDENTIFIER;
+        }
+        break;
+
+        case Lexer::_IDENTIFIER:
+        {   
+            stmt->type = Lexer::_CONST_IDENTIFIER;
+        }
+        break;
+
+        case Lexer::_STATIC_IDENTIFIER:
+        {   
+            stmt->type = Lexer::_CONST_STATIC_IDENTIFIER;
+        }
+        break;
+
+        default:
+        {
+            THROW_PARSING_ERROR( UNEXPECTED_TOKEN, lexer->getCurrLine(),  token );
+        }
+        break;
+    }
+
+    return stmt;
+}
+
+bool Syntax::analyze( Lexer* lexer )
+{
+    _tree = new Tree::Node();
+
     try
     {
-        uint32_t scope = 0;
-        _syntax_tree = new Tree::Node();
-        Tree parse_tree = parser->getTree();
-        for( uint32_t i = 0; i < parse_tree->nodes.size(); i++ )
+        Tree stmt;
+        Lexer::Token token = lexer->getNextToken();
+        while ( token != Lexer::_END_STREAM )
         { 
-            Tree& node = parse_tree->nodes[ i ];
-            _syntax_tree->push( analyzeNode( node ) );
+            switch ( token )
+            {
+                case Lexer::_IDENTIFIER:
+                {   
+                    stmt = analyzeIdentifier( lexer, token );
+                    _tree->push( stmt );
+
+                    if ( token != Lexer::_SEMICOLON )
+                    {
+                        if ( stmt[ 1 ]->type != Lexer::_FUNCTION )
+                        {
+                            THROW_PARSING_ERROR( EXPECTED_TOKEN, lexer->getCurrLine(),  Lexer::_SEMICOLON );
+                        }
+                    }
+                }
+                break;
+
+                case Lexer::_CONST:
+                {   
+                    stmt = analyzeConstant( lexer, token );
+                    _tree->push( stmt );
+
+                    if ( token != Lexer::_SEMICOLON )
+                    {
+                        if ( stmt[ 1 ]->type != Lexer::_FUNCTION )
+                        {
+                            THROW_PARSING_ERROR( EXPECTED_TOKEN, lexer->getCurrLine(),  Lexer::_SEMICOLON );
+                        }
+                    }
+                }
+                break;
+
+                case Lexer::_SEMICOLON:
+                {   
+                    token = lexer->getNextToken();
+                }
+                break;
+
+                default:
+                {
+                    THROW_PARSING_ERROR( UNEXPECTED_TOKEN, lexer->getCurrLine(),  token );
+                }
+                break;
+            }
         }
     }
     catch(const std::runtime_error& e)
     {
-        std::cerr <<"[ ERROR ] : "<< e.what() << '\n';
+        std::cerr << e.what() << '\n';
         return false;
     }
-    
+
+    lexer->clear();
     return true;
 }
 
-void printSyntaxTree(int tabs, Tree& n)
+void printNode(int tabs, Tree& ref)
 {
     for(int i=0; i<tabs; i++) std::cout <<"- ";
-
-    std::cout << Lexer::toString( n->node_type ) <<": " << n->id <<"\n";
-    
-    for(int i=0; i<n->nodes.size(); i++)
+    std::cout <<Lexer::toString( ref->type ) <<": " << ref->id <<"\n";
+    for(int i=0; i<ref->nodes.size(); i++)
     {
-        printSyntaxTree( tabs + 1, n->nodes[ i ] );
+        printNode( tabs + 1, ref->nodes[ i ] );
     }
 }
 
 void Syntax::printTree()
 {
-    if( !_syntax_tree ) return;
-    std::cout <<"\n\n--- --- Syntax Analyzer --- ---\n";
-    for(int i=0; i<_syntax_tree->nodes.size(); i++)
+    std::cout <<"\n\nParser \n";
+    for(int i=0; i<_tree->nodes.size(); i++)
     {
-        printSyntaxTree( 0, _syntax_tree->nodes[ i ] );
+        printNode( 0, _tree->nodes[ i ] );
         std::cout <<"\n";
     }
 }
 
 Tree& Syntax::getTree()
 {
-    return _syntax_tree;
+    return _tree;
 }
 
 void Syntax::clear()
 {
-    _syntax_tree.clear();
+    _tree.clear();
 }
 
 Syntax::~Syntax()

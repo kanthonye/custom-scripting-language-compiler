@@ -1,7 +1,9 @@
 #ifndef syntax_hpp
 #define syntax_hpp
 
-#include "parser.hpp"
+#include <stack>
+#include "tree.hpp"
+#include "lexer.hpp"
 
 /**
  * Syntax analysis, also known as parsing, is the process of analyzing the structure of a 
@@ -15,7 +17,7 @@ class Syntax {
 public:
 
     enum{ CONST = 0, ADDRESS = 1 };
-    bool analyze( Parser* parser );
+    bool analyze( Lexer* lexer );
     void printTree();
     void clear();
 
@@ -26,7 +28,7 @@ public:
 
 private:
 
-    Tree _syntax_tree;
+    Tree _tree;
 };
 
 #endif

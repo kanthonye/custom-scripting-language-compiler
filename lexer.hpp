@@ -8,9 +8,18 @@
 #include "lexer-tokens.hpp"
 #include "lexer-preprocessor.hpp"
 
+
+struct Token
+{
+    uint16_t category;
+    uint16_t type;
+};
+
+
 class Lexer
 {
 public:
+
 #define DEFINE_LEXER_TOKEN(x) _##x
 
     enum Token{ LEXER_TOKENS };
