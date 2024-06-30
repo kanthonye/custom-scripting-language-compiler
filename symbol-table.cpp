@@ -8,27 +8,30 @@ void SymbolTable::enterScope()
 
 void SymbolTable::exitScope() 
 {
-    if (!tables.empty()) {
+    if (!tables.empty()) 
+    {
         tables.pop_back();
     }
 }
 
-void SymbolTable::declare( const std::string& name, const std::string& type ) 
+void SymbolTable::declare( const std::string& name, Tree& type ) 
 {
-    if (tables.back().find(name) != tables.back().end()) {
+    if ( tables.back().find( name ) != tables.back().end() ) 
+    {
         throw std::runtime_error("Variable " + name + " is already declared in this scope.");
     }
-    tables.back()[name] = type;
+    tables.back()[ name ] = type;
 }
 
-std::string SymbolTable::lookup(const std::string& name) 
+Tree SymbolTable::lookup(const std::string& name) 
 {
-    for (auto it = tables.rbegin(); it != tables.rend(); ++it) 
+    std::vector< std::unordered_map< std::string, Tree > >::reverse_iterator it;
+    for (it = tables.rbegin(); it != tables.rend(); ++it) 
     {
-        if (it->find(name) != it->end()) 
+        if (it->find( name ) != it->end()) 
         {
-            return it->at(name);
+            return it->at( name );
         }
     }
-    throw std::runtime_error("Variable " + name + " not declared.");
+    throw std::runtime_error( "Variable " + name + " not declared." );
 }

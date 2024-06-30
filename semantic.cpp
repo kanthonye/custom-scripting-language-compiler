@@ -1,441 +1,6 @@
 #include "semantic.hpp"
 
 
-enum
-{
-    GLOBAL_SCOPE = 1,
-    SYNTAX_ERROR,
-    SYNTAX_OK,
-};
-
-enum
-{
-    NONE = 0,
-    CONST,
-    ADDRESS,
-};
-
-
-
-class SymbolsTable{
-public:
-
-    struct Info 
-    {
-        Tree tree;
-        int scope;
-        int index;
-    };
-
-// public:
-
-    bool insert( int scope, Tree& node );
-    int lookup( int scope, const std::string& id );
-    Tree& get( int index );
-//     Symbols();
-
-// private:
-
-//     std::map< std::string, std::vector< Info > > table;
-//     std::vector< Tree > stmts;
-//     int refcount;
-};
-
-// bool Symbols::insert( int scope, const std::string& id, Syntax::Ref& node )
-// {
-//     int index = int( stmts.size() );
-//     std::vector< Info >& arry = table[ id ];
-//     for (std::vector< Info >::iterator i = arry.begin(); i != arry.end(); i++)
-//     {
-//         if ( i->id == id && i->scope == scope )
-//         {
-//             return false;
-//         }
-//     }
-//     Info info = { id, scope, index };
-//     arry.push_back( info );
-//     stmts.push_back( node );
-//     return true;
-// }
-
-// Syntax::Ref Symbols::find( int scope, const std::string& id )
-// {
-//     std::map< std::string, std::vector< Info > >::iterator m = table.find( id );
-//     if ( m != table.end() )
-//     {
-//         std::vector< Info >& arry = m->second;
-//         for (std::vector< Info >::iterator i = arry.begin(); i != arry.end(); i++)
-//         {
-//             if ( i->id == id && i->scope == scope )
-//             {
-//                 return stmts[ i->index ];
-//             }
-//         }
-//         return stmts[ m->second[ m->second.size() - 1 ].index ];
-//     }
-//     return Syntax::Ref();
-// }
-
-// Syntax::Ref Symbols::find( const std::string& id )
-// {
-//     std::map< std::string, std::vector< Info > >::iterator m = table.find( id );
-//     if ( m != table.end() )
-//     {
-//         std::vector< Info >& arry = m->second;
-//         for (std::vector< Info >::iterator i = arry.begin(); i != arry.end(); i++)
-//         {
-//             if ( i->id == id )
-//             {
-//                 return stmts[ i->index ];
-//             }
-//         }
-//     }
-//     return Syntax::Ref();
-// }
-
-// Symbols::Symbols()
-// :   refcount( 0 )
-// {}
-
-
-
-
-// bool analyzeNode( Semantic* semantic, std::string& errmsg, int flags, int scope, Syntax::Ref& n );
-
-
-// bool isNumeric(const char* str);
-
-
-// #define SEMANTIC_ERROR( msg )( std::string( __FUNCTION__ ) + "(): ln -> " + std::to_string( __LINE__ ) + " : " + msg )
-
-// bool validateIdentifier( int scope, Symbols& symbols, Syntax::Ref& n )
-// {
-//     if ( symbols.find( scope, n->id ) )
-//     {
-//         return true;
-//     }
-//     return false;
-// } 
-
-// bool Semantic::validate( int scope, Symbols& symbols, Syntax::Ref& n )
-// {
-//     switch ( n->node_type )
-//     {
-//         case Lexer::_IDENTIFIER:
-//         {
-//             if ( !validateIdentifier(scope, symbols, n ) )
-//             {
-//                 errmsg = SEMANTIC_ERROR( std::string("undefined -> '"+ n->id + "'") );
-//                 return false;
-//             }
-//             return true;
-//         }
-//         break;
-    
-//         case Lexer::_INT:
-//         case Lexer::_LONG:
-//         case Lexer::_FLOAT:
-//         case Lexer::_DOUBLE: 
-//         case Lexer::_VAR_INT:
-//         case Lexer::_VAR_LONG:
-//         case Lexer::_VAR_FLOAT:
-//         case Lexer::_VAR_DOUBLE:
-//         {
-//             return true;
-//         }
-//         break;
-
-//         default:
-//         break;
-//     }
-//     errmsg = SEMANTIC_ERROR( std::string("syntax error -> '"+ n->id + "' @line: " + std::to_string( n->line ) ));
-//     return false;
-// } 
-
-// // bool Semantic::analyzeContinue( int scope, Syntax::Ref& n ) 
-// // {
-// //     if ( !errmsg.empty() ) return false;
-// //     // Check if continue statement is inside a loop
-// //     if ( scope == std::string::npos ) 
-// //     {
-// //         errmsg = SEMANTIC_ERROR( "Continue statement must be inside a loop. @line: " + std::to_string( n->line ) );
-// //         return false;
-// //     }
-// //     return true;
-// // }
-
-// // bool Semantic::analyzeReturn( int scope, Syntax::Ref& n ) 
-// // {
-// //     if ( !errmsg.empty() ) return false;
-// //     // Check if return statement is inside a function
-// //     if ( scope == 0 ) 
-// //     {
-// //         errmsg = "Return statement must be inside a function.";
-// //         return false;
-// //     }
-// //     // Analyze return expression
-// //     return analyzeNode( scope, n->nodes[ 0 ] );
-// // }
-
-// // bool Semantic::analyzeSwitch( int scope, Syntax::Ref& n )
-// // {
-// //     if ( !errmsg.empty() ) return false;
-// //     // Analyze loop ENCLOSE_PARENTHESIS
-// //     analyzeNode( scope, n->nodes[ 0 ] );
-
-// //     bool has_default = false;
-// //     for (int i = 0; i < n->nodes[ 1 ]->nodes.size(); i++ ) 
-// //     {
-// //         switch ( n->nodes[ i ]->node_type ) 
-// //         {
-// //             case Lexer::_CASE_BLOCK:
-// //                 // Analyze case block
-// //                 analyzeNode( scope, n->nodes[ i ] );
-// //                 break;
-
-// //             case Lexer::_DEFAULT_BLOCK:
-// //                 // Analyze default block
-// //                 analyzeNode( scope, n->nodes[ i ] );
-// //                 has_default = true;
-// //                 break;
-
-// //             default:
-// //                 // Unexpected node type within switch statement
-// //                 errmsg = SEMANTIC_ERROR( "Unexpected node type within switch statement. @line: " + std::to_string( n->line ) );
-// //                 return false;
-// //             break;
-// //         }
-// //     }
-
-// //     if ( !has_default ) 
-// //     {
-// //         errmsg = SEMANTIC_ERROR( "Switch statement must have a default case. @line: " + std::to_string( n->line ) );
-// //         return false;
-// //     }
-// //     return true;
-// // }
-
-// // bool Semantic::analyzeBreak( int scope, Syntax::Ref& n ) 
-// // {
-// //     if ( !errmsg.empty() ) return false;
-// //     // Check if break statement is inside a loop
-// //     if ( scope == std::string::npos) 
-// //     {
-// //         errmsg = SEMANTIC_ERROR( "Break statement must be inside a loop. @line: " + std::to_string( n->line ) );
-// //         return false;
-// //     }
-// //     return true;
-// // }
-
-// // bool Semantic::analyzeWhile( int scope, Syntax::Ref& n )
-// // {
-// //     if ( !errmsg.empty() ) return false;
-// //     // Analyze loop ENCLOSE_PARENTHESIS
-// //     if ( !analyzeNode( scope, n->nodes[ 0 ] ) )
-// //     {
-// //         return false;
-// //     }
-// //     // Analyze loop body
-// //     return analyzeScope( scope, n->nodes[ 1 ] );
-// // }
-
-// // bool Semantic::analyzeFor( int scope, Syntax::Ref& n )
-// // {
-// //     if ( !errmsg.empty() ) return false;
-// //     Syntax::Ref& params = n->nodes[ 0 ];
-
-// //     // Analyze loop initialization
-// //     if ( analyzeNode( scope, params->nodes[ 0 ] ) )
-// //     {
-// //         return false;
-// //     }
-
-// //     // Analyze loop ENCLOSE_PARENTHESIS
-// //     if ( analyzeNode( scope, params->nodes[ 1 ] ) )
-// //     {
-// //         return false;
-// //     }
-
-// //     // Analyze loop increment
-// //     if ( analyzeNode( scope, params->nodes[ 2 ] ) )
-// //     {
-// //         return false;
-// //     }
-// //     // Analyze loop body
-// //     return analyzeScope( scope, n->nodes[ 1 ] );
-// // }
-
-// // bool Semantic::analyzeIf( int scope, Syntax::Ref& n )
-// // {
-// //     if ( !errmsg.empty() ) return false;
-// //     // Analyze ENCLOSE_PARENTHESIS
-// //     if ( !analyzeNode( scope, n->nodes[ 0 ] ) )
-// //     {
-// //         return false;
-// //     }
-// //     // Analyze body
-// //     return analyzeScope( scope, n->nodes[ 1 ] );
-// // }
-
-
-
-
-// // bool Semantic::analyzeAddEqual( int scope, Syntax::Ref& n )
-// // {    
-// //     Syntax::Ref& l = n->nodes[ 0 ];
-// //     Syntax::Ref& r = n->nodes[ 1 ];
-// //     if ( !validate( scope, symbols, l ) )
-// //     {
-// //         errmsg = SEMANTIC_ERROR( std::string("error -> '"+ l->id + "'") );
-// //         return false;
-// //     }
-// //     if ( !validate( scope, symbols, r ) )
-// //     {
-// //         errmsg = SEMANTIC_ERROR( std::string("error -> '"+ l->id + "'") );
-// //         return false;
-// //     }
-// //     return true;
-// // }
-
-// // bool Semantic::analyzeSubEqual( int scope, Syntax::Ref& n )
-// // {    
-// //     if ( !validate( scope, symbols, n->nodes[ 0 ] ) )
-// //     {
-// //         errmsg = SEMANTIC_ERROR( std::string("undefined '"+ n->nodes[ 0 ]->id + "'") );
-// //         return false;
-// //     }
-// //     if ( !validate( scope, symbols, n->nodes[ 1 ] ) )
-// //     {
-// //         errmsg = SEMANTIC_ERROR( std::string("undefined '"+ n->nodes[ 1 ]->id + "'") );
-// //         return false;
-// //     }
-// //     return true;
-// // }
-// // bool Semantic::analyzeDivEqual( int scope, Syntax::Ref& n )
-// // {    
-// //     if ( !validate( scope, symbols, n->nodes[ 0 ] ) )
-// //     {
-// //         errmsg = SEMANTIC_ERROR( std::string("undefined '"+ n->nodes[ 0 ]->id + "'") );
-// //         return false;
-// //     }
-// //     if ( !validate( scope, symbols, n->nodes[ 1 ] ) )
-// //     {
-// //         errmsg = SEMANTIC_ERROR( std::string("undefined '"+ n->nodes[ 1 ]->id + "'") );
-// //         return false;
-// //     }
-// //     return true;
-// // }
-// // bool Semantic::analyzeMulEqual( int scope, Syntax::Ref& n )
-// // {  
-// //     if ( !validate( scope, symbols, n->nodes[ 0 ] ) )
-// //     {
-// //         errmsg = SEMANTIC_ERROR( std::string("undefined '"+ n->nodes[ 0 ]->id + "'") );
-// //         return false;
-// //     }
-// //     if ( !validate( scope, symbols, n->nodes[ 1 ] ) )
-// //     {
-// //         errmsg = SEMANTIC_ERROR( std::string("undefined '"+ n->nodes[ 1 ]->id + "'") );
-// //         return false;
-// //     }
-// //     return true;
-// // }
-// // bool Semantic::analyzeModEqual( int scope, Syntax::Ref& n )
-// // {    
-// //     if ( !validate( scope, symbols, n->nodes[ 0 ] ) )
-// //     {
-// //         errmsg = SEMANTIC_ERROR( std::string("undefined '"+ n->nodes[ 0 ]->id + "'") );
-// //         return false;
-// //     }
-// //     if ( !validate( scope, symbols, n->nodes[ 1 ] ) )
-// //     {
-// //         errmsg = SEMANTIC_ERROR( std::string("undefined '"+ n->nodes[ 1 ]->id + "'") );
-// //         return false;
-// //     }
-// //     return true;
-// // }
-// // bool Semantic::analyzeExpEqual( int scope, Syntax::Ref& n )
-// // {    
-// //     if ( !validate( scope, symbols, n->nodes[ 0 ] ) )
-// //     {
-// //         return false;
-// //     }
-// //     if ( !validate( scope, symbols, n->nodes[ 1 ] ) )
-// //     {
-// //         return false;
-// //     }
-// //     return true;
-// // }
-
-// // bool Semantic::analyzeAdd( int scope, Syntax::Ref& n )
-// // {      
-// //     Syntax::Ref& l = n->nodes[ 0 ];
-// //     Syntax::Ref& r = n->nodes[ 1 ];
-// //     if ( !validate( scope, symbols, l ) )
-// //     {
-// //         return false;
-// //     }
-// //     if ( !validate( scope, symbols, r ) )
-// //     {
-// //         return false;
-// //     }
-// //     return true;
-// // }
-// // bool Semantic::analyzeSub( int scope, Syntax::Ref& n )
-// // {    
-// //     return true;
-// // }
-// // bool Semantic::analyzeDiv( int scope, Syntax::Ref& n )
-// // {    
-// //     if ( !validate( scope, symbols, n->nodes[ 0 ] ) )
-// //     {
-// //         return false;
-// //     }
-// //     if ( !validate( scope, symbols, n->nodes[ 1 ] ) )
-// //     {
-// //         return false;
-// //     }
-// //     return true;
-// // }
-// // bool Semantic::analyzeMul( int scope, Syntax::Ref& n )
-// // {    
-// //     if ( !validate( scope, symbols, n->nodes[ 0 ] ) )
-// //     {
-// //         return false;
-// //     }
-// //     if ( !validate( scope, symbols, n->nodes[ 1 ] ) )
-// //     {
-// //         return false;
-// //     }
-// //     return true;
-// // }
-// // bool Semantic::analyzeMod( int scope, Syntax::Ref& n )
-// // {    
-// //     if ( !validate( scope, symbols, n->nodes[ 0 ] ) )
-// //     {
-// //         return false;
-// //     }
-// //     if ( !validate( scope, symbols, n->nodes[ 1 ] ) )
-// //     {
-// //         return false;
-// //     }
-// //     return true;
-// // }
-
-// // bool Semantic::analyzeExp( int scope, Syntax::Ref& n )
-// // {    
-// //     if ( !validate( scope, symbols, n->nodes[ 0 ] ) )
-// //     {
-// //         return false;
-// //     }
-// //     if ( !validate( scope, symbols, n->nodes[ 1 ] ) )
-// //     {
-// //         return false;
-// //     }
-// //     return true;
-// // }
-
-
-
 
 // // bool Semantic::analyzeFunctCall( int scope, Syntax::Ref& n )
 // // {
@@ -706,212 +271,211 @@ public:
 //     return true;
 // }
 
-// bool analyzeDeclaration( Semantic* semantic, std::string& errmsg, int flags, int scope, Syntax::Ref& n )
+// void analyzeAssignNode( SymbolsTable* symbols, Tree& tree, int& scope )
 // {
-//     if ( !errmsg.empty() ) return false;
-
-//     switch ( n->nodes[ 1 ]->node_type )
+//     switch ( tree[ 1 ]->type )
 //     {
-//         case Lexer::_HOST:
-//         {
-//             if ( scope != GLOBAL_SCOPE )
-//             {
-//                 return false;
-//             }
-            
-//             Syntax::Ref& name = n->nodes[ 0 ];
-//             Syntax::Ref& func = n->nodes[ 1 ];
-//             functions.insert( scope, name->id, func );
-//             return true;
-//         }
-//         break;
-
 //         case Lexer::_FUNCTION:
 //         {
-//             return analyzeFunction( semantic, errmsg, flags, scope, n );
+//             if ( symbols->lookup( scope, tree[ 0 ]->id ) < 0 )
+//             {
+//                 scope++;
+//                 symbols->insert( scope, tree );
+//                 analyzeFunctionNode( symbols, tree[ 1 ], scope );
+//             }
+//             else 
+//             {
+//                 //THROW_SEMANTIC_ERROR( SEMANTIC_ERROR_DUPLICATE, tree[ 0 ]->line, tree->id, );
+//             }
 //         }
 //         break;
 
-//         case Lexer::_FALSE:
-//         case Lexer::_TRUE:
-//         case Lexer::_INT:
-//         case Lexer::_LONG:
-//         case Lexer::_FLOAT:
-//         case Lexer::_DOUBLE:
-//         case Lexer::_STRING:
-//         case Lexer::_VAR_INT:
-//         case Lexer::_VAR_LONG:
-//         case Lexer::_VAR_FLOAT:
-//         case Lexer::_VAR_DOUBLE:
-//         case Lexer::_VAR_STRING:
+//         case Lexer::_FUNCTION_CALL:
 //         {
-//             symbols.insert( scope, n->nodes[ 0 ]->id, n->nodes[ 1 ] );
-//         }
-//         break;
-    
-//         default:
-//         {
-//             errmsg = SEMANTIC_ERROR( std::string("unsupported '"+ n->nodes[ 1 ]->id + "' @line: " + std::to_string( n->line )) );
-//             return false;
-//         }
-//         break;
-//     }
-//     return true;
-// }
-
-// bool analyzeAddress( Semantic* semantic, std::string& errmsg, int flags, int scope, Syntax::Ref& n )
-// {
-//     if ( !errmsg.empty() ) return false;
-
-//     switch ( n->nodes[ 0 ]->node_type )
-//     {
-//         case Lexer::_DECLARATION: 
-//         {
-//             return analyzeDeclaration( semantic, errmsg, flags, scope, n );
-//         }
-//         break;
-
-//         case Lexer::_ASSIGN:
-//         {
-//             return analyzeAssign( semantic, errmsg, flags, scope,n );
-//         }
-//         break;
-
-//         case Lexer::_IDENTIFIER:
-//         {
-//         }
-//         break;
-    
-//         default:
-//         {
-//             errmsg = SEMANTIC_ERROR( std::string("unsupported '"+ n->nodes[ 0 ]->id + "' @line: " + std::to_string( n->line )) );
-//             return false;
+//             int index = symbols->lookup( scope, tree->id );
+//             if ( index >= 0 )
+//             {
+//                 Tree& function = symbols->get( index );
+//                 Tree& funccall = tree;
+                
+//                 Tree& parameters = function[ 0 ];
+//                 if ( funccall.size() != parameters.size() )
+//                 {
+//                     // for (size_t i = 0; i < parameters.size(); i++)
+//                     // {
+//                     //     Tree& param = parameters[ i ];
+//                     //     if ( !isCompatible( param, funccall[ i ] ) )
+//                     //     {
+//                     //         //THROW_SEMANTIC_ERROR( SEMANTIC_ERROR_NONE_COMPATIBLE_PARAM, tree->line, tree->id, );
+//                     //     }
+//                     // }
+//                     // THROW_SEMANTIC_ERROR( SEMANTIC_ERROR_FUNC_PARAM_SIZE, tree->line, tree->id, );
+//                 }
+//             }
+//             else 
+//             {
+//                 //THROW_SEMANTIC_ERROR( SEMANTIC_ERROR_UNDEFINE_FUNCTION, tree->line, tree->id, );
+//             }
 //         }
 //         break;
 //     }
-//     return true;
 // }
 
-// bool analyzeConst( Semantic* semantic, std::string& errmsg, int flags, int scope, Syntax::Ref& n )
-// {
-//     switch ( n->nodes[ 0 ]->node_type )
-//     {
-//         case Lexer::_DECLARATION:
-//         {
-//             return analyzeDeclaration( semantic, errmsg, CONST, scope, n->nodes[ 0 ] );
-//         }
 
-//         case Lexer::_ASSIGN:
-//         {
-//             return analyzeAssign( semantic, errmsg, CONST, scope, n->nodes[ 0 ] );
-//         }
 
-//         case Lexer::_ADDRESS:
-//         {
-//             return analyzeAddress( semantic, errmsg, CONST | ADDRESS, scope, n->nodes[ 0 ] );
-//         }
-    
-//         default:
-//         {
-//             errmsg = SEMANTIC_ERROR( std::string("unsupported '"+ n->nodes[ 1 ]->id + "'") );
-//         }
-//         break;
-//     }
-//     return true;
-// }
-
-bool isCompatible( Tree& param, Tree& node )
+void Semantic::analyzeAssign( Tree& node ) 
 {
-    switch ( param->type )
+    if ( node.size() != 2 ) 
+    {
+        throw std::runtime_error( "Invalid assignment node." );
+    }
+
+    Tree& var_node = node[ 0 ];
+    Tree& val_node = node[ 1 ];
+    switch ( var_node->type )
+    {
+        case Lexer::_IDENTIFIER:
+        case Lexer::_CONST_IDENTIFIER:
+        case Lexer::_STATIC_IDENTIFIER:
+        case Lexer::_CONST_STATIC_IDENTIFIER:
+        { 
+            _symbol_table.declare( var_node->id, val_node );
+        }
+        break;
+    
+        default:
+        {
+            throw std::runtime_error( "Left-hand side of assignment must be an identifier." );
+        }
+        break;
+    }
+}
+
+void Semantic::analyzeFunction( Tree& node ) 
+{
+    _symbol_table.enterScope();
+    for ( int i = 0; i < node.size(); i++ ) 
+    {
+        analyzeNode( node[ i ] );
+    }
+    _symbol_table.exitScope();
+}
+
+void Semantic::analyzeIf( Tree& node ) 
+{
+    if ( node.size() < 2 ) 
+    {
+        throw std::runtime_error("Invalid if node.");
+    }
+    
+    analyzeNode( node[ 0 ] ); // Condition
+
+    _symbol_table.enterScope();
+    analyzeNode( node[ 1 ] ); // Then block
+    _symbol_table.exitScope();
+
+    if ( node.size() > 2 ) 
+    {
+        _symbol_table.enterScope();
+        analyzeNode( node[ 2 ] ); // Else block
+        _symbol_table.exitScope();
+    }
+}
+
+void Semantic::analyzeFor( Tree& node ) 
+{
+    if ( node.size() != 2 ) 
+    {
+        throw std::runtime_error( "Invalid for loop node." );
+    }
+
+    if ( node[ 0 ].size() != 3 ) 
+    {
+        throw std::runtime_error( "Invalid for loop node condition." );
+    }
+
+    _symbol_table.enterScope();
+    for ( int i = 0; i < node.size(); i++ ) 
+    {
+        analyzeNode( node[ i ] );
+    }
+    _symbol_table.exitScope();
+}
+
+void Semantic::analyzeWhile( Tree& node ) 
+{
+    if ( node.size() != 2 ) 
+    {
+        throw std::runtime_error( "Invalid while loop node." );
+    }
+
+    analyzeNode( node[ 0 ] ); // Condition
+
+    _symbol_table.enterScope();
+    analyzeNode( node[ 1 ] ); // Body
+    _symbol_table.exitScope();
+}
+
+void Semantic::analyzeFunctionCall( Tree& node ) 
+{
+    Tree funct = _symbol_table.lookup( node->id );
+
+    if( funct->nodes[ 0 ].size() != node.size() )
+    {
+        throw std::runtime_error( "Function call parameters count must be equal to the function it's calling." );
+    }
+    
+    for ( int i = 0; i < node.size(); i++ ) 
+    {
+        analyzeNode( node[ i ] );
+    }
+}
+
+void Semantic::analyzeNode( Tree& node )
+{
+    switch ( node->type ) 
     {
         case Lexer::_ASSIGN:
         {
-            switch( param[ 1 ]->type )
-            {
-                case Lexer::_DOUBLE:
-                case Lexer::_FLOAT:
-                case Lexer::_LONG:
-                case Lexer::_INT:
-                {
-                }
-                break;
-
-                case Lexer::_STRING:
-                {
-                }
-                break;
-
-                case Lexer::_BOOL:
-                {
-                }
-                break;
-
-                case Lexer::_FUNCTION:
-                {
-                }
-                break;
-
-                default:
-                break;
-            }
+            analyzeAssign( node );
         }
         break;
 
-        default:
-        break;
-    }
-    return true;
-}
-
-void analyzeFunctionNode( SymbolsTable* symbols, Tree& tree, int& scope )
-{
-
-}
-
-void analyzeAssignNode( SymbolsTable* symbols, Tree& tree, int& scope )
-{
-    switch ( tree[ 1 ]->type )
-    {
         case Lexer::_FUNCTION:
         {
-            if ( symbols->lookup( scope, tree[ 0 ]->id ) < 0 )
-            {
-                scope++;
-                symbols->insert( scope, tree );
-                analyzeFunctionNode( symbols, tree[ 1 ], scope );
-            }
-            else 
-            {
-                //THROW_SEMANTIC_ERROR( SEMANTIC_ERROR_DUPLICATE, tree[ 0 ]->line, tree->id, );
-            }
+            analyzeFunction( node );
+        }
+        break;
+
+        case Lexer::_IF:
+        {
+            analyzeIf( node );
+        }
+        break;
+
+        case Lexer::_FOR:
+        {
+            analyzeFor( node );
+        }
+        break;
+
+        case Lexer::_WHILE:
+        {
+            analyzeWhile( node );
         }
         break;
 
         case Lexer::_FUNCTION_CALL:
         {
-            int index = symbols->lookup( scope, tree->id );
-            if ( index >= 0 )
+            analyzeFunctionCall( node );
+        }
+        break;
+
+        default:
+        {
+            for ( int i = 0; i < node.size(); i++ ) 
             {
-                Tree& function = symbols->get( index );
-                Tree& funccall = tree;
-                
-                Tree& parameters = function[ 0 ];
-                if ( funccall.size() != parameters.size() )
-                {
-                    // for (size_t i = 0; i < parameters.size(); i++)
-                    // {
-                    //     Tree& param = parameters[ i ];
-                    //     if ( !isCompatible( param, funccall[ i ] ) )
-                    //     {
-                    //         //THROW_SEMANTIC_ERROR( SEMANTIC_ERROR_NONE_COMPATIBLE_PARAM, tree->line, tree->id, );
-                    //     }
-                    // }
-                    // THROW_SEMANTIC_ERROR( SEMANTIC_ERROR_FUNC_PARAM_SIZE, tree->line, tree->id, );
-                }
-            }
-            else 
-            {
-                //THROW_SEMANTIC_ERROR( SEMANTIC_ERROR_UNDEFINE_FUNCTION, tree->line, tree->id, );
+                analyzeNode( node[ i ] );
             }
         }
         break;
@@ -920,34 +484,19 @@ void analyzeAssignNode( SymbolsTable* symbols, Tree& tree, int& scope )
 
 bool Semantic::analyze( Syntax* syntax )
 {
-    Tree& tree = syntax->getTree();
-
+    try
+    {
+        Tree& node = syntax->getTree();
+        analyzeNode( node );
+    }
+    catch( const std::runtime_error& e )
+    {
+        std::cerr << e.what() << '\n';
+    }
     return true;
 }
 
-// bool Semantic::load( const char* filename )
-// {
-//     if( syntax.load( filename ) )
-//     {
-//         if ( syntax.parse() )
-//         {
-//             syntax.printTree();
-            
-//             Syntax::Tree* node = syntax.getTree();
-//             return analyze( node );
-//         }
-//     }
-
-//     syntax.error( __FILE__, __FUNCTION__, __LINE__, Lexer::_ERROR_FILE_IO, filename );
-//     return false;
-// }
-
-// int Semantic::newScope()
-// {
-//     return ++_scope_counter;
-// }
-
-// Semantic::Semantic()
-// :   _scope_counter( 0 )
-// {}
-
+Semantic::Semantic()
+{
+    _symbol_table.enterScope();
+}

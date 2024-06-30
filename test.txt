@@ -43,14 +43,9 @@ const add : function ()
 }
 
 // static function declaration, that takes static and dynamic parameters
-add : function ( x, y:float, @z:float, const x, const y:float, const @z:float, a:[], const a:[] ) 
+const add : function ( x, y:float, const x, const y:float, a:[], const a:[] ) 
 {
 
-}
-
-// dynamic function declaration. storing function as a variable
-add = function ( y=float, @z=float, const x, const y=float, const @z=float, a=[], const a=[]) 
-{
 }
 
 const main : function()

@@ -15,14 +15,14 @@
 class SymbolTable {
 public:
 
-    void declare( const std::string& name, const std::string& type );
-    std::string lookup( const std::string& name );
+    void declare( const std::string& name, Tree& type );
+    Tree lookup( const std::string& name );
     void enterScope();
     void exitScope();
 
 private:
 
-    std::vector< std::unordered_map< std::string, std::string > > tables;
+    std::vector< std::unordered_map< std::string, Tree > > tables;
 };
 
 #endif // symbol_table_hpp
