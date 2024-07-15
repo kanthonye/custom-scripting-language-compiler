@@ -28,7 +28,7 @@ void throwPaserError( int error_code, int line, Lexer::Token token, const char* 
         case UNEXPECTED_TOKEN:
         {
             msg += "error in " + std::string( funct );
-            msg += std::string( ": UNEXPECTED_TOKEN -> " ) + Lexer::toString( token );
+            msg += std::string( "(): UNEXPECTED_TOKEN -> " ) + Lexer::toString( token );
             msg += std::string( ": at line# " ) + std::to_string( line );
         }
         break;
@@ -36,7 +36,7 @@ void throwPaserError( int error_code, int line, Lexer::Token token, const char* 
         case MISSING_TOKEN:
         {
             msg += "error in " + std::string( funct );
-            msg += std::string( ": MISSING_TOKEN -> " ) + Lexer::toString( token );
+            msg += std::string( "(): MISSING_TOKEN -> " ) + Lexer::toString( token );
             msg += std::string( ": at line# " ) + std::to_string( line );
         }
         break;
@@ -44,7 +44,7 @@ void throwPaserError( int error_code, int line, Lexer::Token token, const char* 
         case EXPECTED_TOKEN:
         {
             msg += "error in " + std::string( funct );
-            msg += std::string( ": EXPECTED_TOKEN -> " ) + Lexer::toString( token );
+            msg += std::string( "(): EXPECTED_TOKEN -> " ) + Lexer::toString( token );
             msg += std::string( ": at line# " ) + std::to_string( line );
         }
         break;
@@ -52,7 +52,7 @@ void throwPaserError( int error_code, int line, Lexer::Token token, const char* 
         case UNSUPPORTED_TYPE:
         {
             msg += "error in " + std::string( funct );
-            msg += std::string( ": UNSUPPORTED_TYPE -> " ) + Lexer::toString( token );
+            msg += std::string( "(): UNSUPPORTED_TYPE -> " ) + Lexer::toString( token );
             msg += std::string( ": at line# " ) + std::to_string( line );
         }
         break;
@@ -194,6 +194,8 @@ Tree analyzeDataType( Lexer* lexer, Lexer::Token& token )
 
     switch( token )
     {
+        case Lexer::_TRUE:
+        case Lexer::_FALSE:
         case Lexer::_BOOL:
         {
             var = new Tree::Node( ln, Lexer::_BOOL, lexer->getLexeme() );
@@ -459,6 +461,11 @@ Tree analyzeScopeBlock( Lexer* lexer, Lexer::Token& token )
             case Lexer::_IDENTIFIER:
             {   
                 stmts->push( analyzeIdentifier( lexer, token ) );
+                if ( token != Lexer::_SEMICOLON )
+                {
+                    THROW_PARSING_ERROR( EXPECTED_TOKEN, lexer->getCurrLine(), Lexer::_SEMICOLON );
+                }
+                token = lexer->getNextToken();
             }
             break;
 
@@ -466,16 +473,24 @@ Tree analyzeScopeBlock( Lexer* lexer, Lexer::Token& token )
             {   
                 token = lexer->getNextToken();
                 stmts->push( analyzeConstant( lexer, token ) );
+                if ( token != Lexer::_SEMICOLON )
+                {
+                    THROW_PARSING_ERROR( EXPECTED_TOKEN, lexer->getCurrLine(), Lexer::_SEMICOLON );
+                }
+                token = lexer->getNextToken();
             }
             break;
 
             case Lexer::_IF:
             {   
                 token = lexer->getNextToken();
-                stmts->push( analyzeIfStatement( lexer, token ) );
+                Tree cond = new Tree::Node( lexer->getCurrLine(), Lexer::_IF_STATEMENT );
+                stmts->push( cond );
+
+                cond->push( analyzeIfStatement( lexer, token ) );
                 while ( token == Lexer::_ELSE )
                 {
-                    stmts->push( analyzeElseStatement( lexer, token ) );
+                    cond->push( analyzeElseStatement( lexer, token ) );
                 }
             }
             break;
@@ -789,6 +804,9 @@ bool tokenIsDelimiter( Lexer::Token& token )
     }
 }
 
+// Tree analyzeRightsizeIdentifier( Lexer* lexer, Lexer::Token& token )
+// {}
+
 Tree analyzeExpression( Lexer* lexer, Lexer::Token& token )
 {
     std::stack< Tree > operators; // Stack to hold operators
@@ -860,6 +878,8 @@ Tree analyzeExpression( Lexer* lexer, Lexer::Token& token )
             case Lexer::_LONG:
             case Lexer::_INT:
             case Lexer::_BOOL:
+            case Lexer::_TRUE:
+            case Lexer::_FALSE:
             {
                 operands.push( analyzeDataType( lexer, token ) );
                 op = false;
@@ -980,12 +1000,9 @@ Tree analyzeIdentifier( Lexer* lexer, Lexer::Token& token )
         case Lexer::_COLON:
         {
             stmt = new Tree::Node( lexer->getCurrLine(), Lexer::_DECLARATION );
-            stmt->push( identifier );
-
             token = lexer->getNextToken();
-
-            identifier->type = Lexer::_STATIC_IDENTIFIER;
-            identifier->push( analyzeRightTerm( lexer, token ) );
+            stmt->push( identifier );
+            stmt->push( analyzeRightTerm( lexer, token ) );
         }
         break;
 
@@ -1014,7 +1031,7 @@ Tree analyzeIdentifier( Lexer* lexer, Lexer::Token& token )
                 {
                     THROW_PARSING_ERROR( EXPECTED_TOKEN, lexer->getCurrLine(), Lexer::_SEMICOLON );
                 }
-                token = lexer->getNextToken();
+                //token = lexer->getNextToken();
             }
         }
         break;
@@ -1065,54 +1082,20 @@ Tree analyzeIdentifier( Lexer* lexer, Lexer::Token& token )
 Tree analyzeConstant( Lexer* lexer, Lexer::Token& token )
 {
     token = lexer->getNextToken();
-    Tree stmt = analyzeIdentifier( lexer, token );
-    
-    switch( stmt->type )
-    {
-        case Lexer::_IDENTIFIER:
-        {   
-            stmt->type = Lexer::_CONST_IDENTIFIER;
-        }
-        break;
-
-        case Lexer::_ASSIGN:
-        {   
-            stmt[ 0 ]->type = Lexer::_CONST_IDENTIFIER;
-        }
-        break;
-
-        case Lexer::_DECLARATION:
-        {   
-            stmt[ 0 ]->type = Lexer::_CONST_STATIC_IDENTIFIER;
-        }
-        break;
-
-        case Lexer::_STATIC_IDENTIFIER:
-        {   
-            stmt->type = Lexer::_CONST_STATIC_IDENTIFIER;
-        }
-        break;
-
-        default:
-        {
-            THROW_PARSING_ERROR( UNEXPECTED_TOKEN, lexer->getCurrLine(),  token );
-        }
-        break;
-    }
-
+    Tree stmt = new Tree::Node( lexer->getCurrLine(), Lexer::_CONST ); 
+    stmt->push( analyzeIdentifier( lexer, token ) );
     return stmt;
 }
 
 void evaluateSemicolon( Lexer* lexer, Lexer::Token& token, Tree& node )
 {
-
-    if ( token != Lexer::_SEMICOLON )
+    if ( token != Lexer::_SEMICOLON && token != Lexer::_END_STREAM )
     {
         switch ( node->type )
         {
             case Lexer::_DECLARATION:
             {
-                if ( node[ 0 ][ 0 ]->type != Lexer::_FUNCTION )
+                if ( node[ 0 ]->type != Lexer::_FUNCTION )
                 {
                     THROW_PARSING_ERROR( EXPECTED_TOKEN, lexer->getCurrLine(),  Lexer::_SEMICOLON );
                 }
@@ -1178,7 +1161,7 @@ bool Syntax::analyze( Lexer* lexer )
     }
     catch(const std::runtime_error& e)
     {
-        std::cerr << e.what() << '\n';
+        std::cerr <<"[ SYNTAX_ERROR ]: "<< e.what() << '\n';
         return false;
     }
 

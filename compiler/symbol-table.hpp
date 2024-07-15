@@ -15,8 +15,10 @@
 class SymbolTable {
 public:
 
-    void declare( const std::string& name, Tree& type );
-    Tree lookup( const std::string& name );
+    void declare( const std::string& name, Tree& node );
+    void set( const std::string& name, Tree& node );
+    void declare( const std::string& name );
+    Tree* lookup( const std::string& name );
     void enterScope();
     void exitScope();
 

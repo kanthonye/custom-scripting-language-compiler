@@ -1,0 +1,25 @@
+
+
+const main : function()
+{
+    file = open( "somefile/somewhere/image.jpu" );
+    size = sizeof( file );
+    data = []( size );
+    fread( data, size, file );
+    close( file );
+
+    print( data );
+    token: "";
+
+    for( i=0; i<size; i++)
+    {
+        k = data[i];
+        if( !k )
+        {
+            break;
+        }
+        token += k;
+    }
+
+    print( token );
+}

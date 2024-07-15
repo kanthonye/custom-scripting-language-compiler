@@ -14,6 +14,7 @@ private:
 
     void analyzeNode( Tree& node );
     void analyzeAssign( Tree& node );
+    void analyzeDeclaration( Tree& node );
     void analyzeFunction( Tree& node );
     void analyzeIf( Tree& node );
     void analyzeFor( Tree& node );

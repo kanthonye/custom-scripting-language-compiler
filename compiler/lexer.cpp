@@ -973,6 +973,6 @@ Lexer::Lexer()
     token_table[ "return"   ] = _RETURN;
     token_table[ "host"     ] = _HOST;
     token_table[ "switch"   ] = _SWITCH;
-    token_table[ "case"     ] = _CASE_BLOCK;
-    token_table[ "default"  ] = _DEFAULT_BLOCK;
+    token_table[ "case"     ] = _SWITCH_CASE;
+    token_table[ "default"  ] = _SWITCH_DEFAULT;
 }

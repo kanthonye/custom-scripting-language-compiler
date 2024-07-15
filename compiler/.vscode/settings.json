@@ -74,6 +74,7 @@
         "__availability": "cpp",
         "*.ipp": "cpp",
         "filesystem": "cpp",
-        "functional": "cpp"
+        "functional": "cpp",
+        "shared_mutex": "cpp"
     }
 }
